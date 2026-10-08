@@ -1,0 +1,10 @@
+.env.local
+.env*.local
+node_modules/
+.next/
+.next-dev/
+.next-explore/
+out/
+dist/
+*.log
+.DS_Store
