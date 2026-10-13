@@ -1,31 +1,25 @@
-# Firebase Google sign-in setup
+# Firebase setup
 
-The app uses Firebase Authentication for Google sign-in and Cloud Firestore for public problems and author display names. It stores only a Firebase UID and a display name for attribution; it does not store or publish the user's email. Users can change their public display name from the sign-in flow.
+The app uses Firebase Authentication with Google sign-in and Cloud Firestore for public problem posts, public display names, and persistent conversation replies.
 
-## Firebase Console
+For the complete setup, data model, access rules, and troubleshooting guide, see [README.md](./README.md).
 
-1. Create or choose a Firebase project and register a Web app.
-2. In **Authentication → Sign-in method**, enable **Google** and choose a support email.
-3. In **Authentication → Settings → Authorized domains**, make sure `localhost` and the production domain are listed.
-4. Create a **Cloud Firestore** database.
-5. Copy the Web app config values into `.env.local` using the names in `.env.example`.
-6. Deploy the included Firestore rules from this project root after selecting the Firebase project:
+## Quick setup
+
+1. Create or select the Firebase project and register a Web app.
+2. Enable **Google** under **Authentication → Sign-in method**.
+3. Add `localhost` and the deployed host under **Authentication → Settings → Authorized domains**.
+4. Create a Cloud Firestore database in that project.
+5. Copy `.env.example` to `.env.local` and add the Web app values. The required variables are `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, and `NEXT_PUBLIC_FIREBASE_APP_ID`. `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` is optional.
+6. Restart Next.js after changing `.env.local`.
+7. From the repository root, sign in to Firebase CLI and deploy the rules to the same project:
 
    ```powershell
    npx firebase-tools login
-   npx firebase-tools use --add
-   npx firebase-tools deploy --only firestore:rules
+   npx firebase-tools deploy --only firestore:rules --project itch-9264a
    ```
 
-7. Restart the Next.js dev server after editing `.env.local`.
+   Replace `itch-9264a` if your Firebase project has a different ID. The CLI user needs appropriate project access, Service Usage permission, and permission to publish Firebase Security Rules.
 
-The rules allow public reads of published problem documents and their public display names. Signed-in users can reserve a unique display name in `usernames/{normalizedName}` and update their own `users/{uid}` record. Name reservation and profile updates happen in one Firestore transaction so two users cannot claim the same normalized name at once. Email addresses are never written to Firestore.
+The web SDK config is public client configuration. Firestore rules enforce access: reads of published problems and replies are public, while creating posts and replies requires sign-in. Public user documents contain display names and name keys only, not email addresses.
 
-## What happens in the app
-
-- The sign-in button opens Google sign-in through Firebase Authentication.
-- After Google sign-in, the user can edit the display name. Saving reserves the name, updates `users/{uid}`, and redirects to `/explore`.
-- Display names are case-insensitive unique names between 2 and 30 characters. A name already claimed by another account is rejected.
-- Drafts remain in browser storage until the user signs in and submits.
-- Submitted problems are written to `problems/{id}` with `authorId` and `authorName`, then appear in Explore.
-- No profile editing is provided. The public display name is fixed when the user record is created.
