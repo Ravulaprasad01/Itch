@@ -1,13 +1,44 @@
 'use client';
 
-import React from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ItchHeader from '@/components/itch/ItchHeader';
 import ItchFooter from '@/components/itch/ItchFooter';
-import { MOCK_PROBLEMS } from '@/lib/mock-data';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function DiscoverPage() {
-  const sorted = [...MOCK_PROBLEMS].sort((a, b) => b.devInterestCount - a.devInterestCount);
+  const [problems, setProblems] = useState([]);
+
+  useEffect(() => {
+    if (!db) return;
+
+    return onSnapshot(query(collection(db, 'problems'), orderBy('createdAt', 'desc')), snapshot => {
+        const communityProblems = snapshot.docs.map(problemDoc => {
+          const data = problemDoc.data();
+          const categoryName = typeof data.category === 'string' ? data.category : data.category?.name;
+          return {
+            ...data,
+            id: problemDoc.id,
+            slug: problemDoc.id,
+            isCommunityPost: true,
+            category: { name: categoryName || 'General' },
+            targetAudience: data.audience || 'Community member',
+            meTooCount: data.meTooCount || 0,
+            wantThisCount: data.wantThisCount || 0,
+            devInterestCount: data.devInterestCount || 0,
+          };
+        });
+
+        setProblems(communityProblems);
+      }, () => setProblems([]));
+  }, []);
+
+  const sorted = [...problems].sort((a, b) => {
+    if (a.isCommunityPost !== b.isCommunityPost) return a.isCommunityPost ? -1 : 1;
+    if (a.isCommunityPost) return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+    return (b.devInterestCount || 0) - (a.devInterestCount || 0);
+  });
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-on-surface">
@@ -24,7 +55,7 @@ export default function DiscoverPage() {
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Unclaimed Market Frictions</h1>
             <p className="text-sm text-tertiary/70 mt-1.5 max-w-xl leading-relaxed">
-              High-conviction problems ranked by verified signals. Find your next build.
+              Problems shared by the community, with context for builders who want to help.
             </p>
           </div>
 
@@ -49,9 +80,9 @@ export default function DiscoverPage() {
                     <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-surface-container-high/80 text-tertiary/70">
                       #{p.category?.name || 'General'}
                     </span>
-                    <span className={`font-mono text-xs font-bold ${p.priorityScore >= 80 ? 'text-primary' : p.priorityScore >= 65 ? 'text-amber-400' : 'text-tertiary'}`}>
+                    {p.isCommunityPost ? <span className="font-mono text-[10px] text-secondary">NEW</span> : <span className={`font-mono text-xs font-bold ${p.priorityScore >= 80 ? 'text-primary' : p.priorityScore >= 65 ? 'text-amber-400' : 'text-tertiary'}`}>
                       {p.priorityScore}
-                    </span>
+                    </span>}
                   </div>
 
                   <Link href={`/problems/${p.slug}`} className="block group">
@@ -62,28 +93,10 @@ export default function DiscoverPage() {
 
                   <p className="text-[0.8rem] text-tertiary/65 line-clamp-3 leading-relaxed">{p.description}</p>
 
-                  <div
-                    className="p-3 rounded-xl flex items-center justify-around font-mono text-xs"
-                    style={{ background: 'rgba(6,12,22,0.8)', border: '1px solid rgba(255,255,255,0.05)' }}
-                  >
-                    {[
-                      { v: p.meTooCount,       l:'Me Too',    c:'text-primary'   },
-                      { v: p.wantThisCount,    l:'Want This', c:'text-secondary' },
-                      { v: p.devInterestCount, l:'Devs',      c:'text-secondary/70' },
-                    ].map((m, idx) => (
-                      <React.Fragment key={m.l}>
-                        {idx > 0 && <div className="w-px h-5 bg-surface-container-high" />}
-                        <div className="text-center">
-                          <div className={`font-bold ${m.c}`}>{m.v}</div>
-                          <div className="text-[10px] text-tertiary/50 mt-0.5">{m.l}</div>
-                        </div>
-                      </React.Fragment>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-white/[0.05]">
-                  <span className="font-mono text-[11px] text-tertiary/50 truncate max-w-[140px]">{p.targetAudience}</span>
+                  <span className="font-mono text-[11px] text-tertiary/50 truncate max-w-[140px]">Posted by {p.author?.displayName || 'Community member'}</span>
                   <Link
                     href={`/problems/${p.slug}`}
                     className="inline-flex items-center gap-1.5 bg-primary-container text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-primary transition-all duration-200 active:scale-95 shadow-[0_2px_10px_rgba(249,115,22,0.25)]"
@@ -95,6 +108,7 @@ export default function DiscoverPage() {
               </div>
             ))}
           </div>
+          {sorted.length === 0 && <div className="mt-8 rounded-2xl border border-white/10 bg-surface-container/30 p-8 text-center"><h2 className="text-lg font-bold text-on-surface">No opportunities to explore yet</h2><p className="mt-2 text-sm text-tertiary">Community posts will appear here as people share problems.</p><Link href="/explore" className="mt-4 inline-flex text-sm font-semibold text-primary">Browse problems <span className="material-symbols-outlined ml-1 text-base">arrow_forward</span></Link></div>}
         </div>
       </main>
 

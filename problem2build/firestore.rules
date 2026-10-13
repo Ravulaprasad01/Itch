@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      // Public problem cards only need a display name; never store email here.
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['displayName', 'nameKey', 'createdAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30
+        && request.resource.data.nameKey is string
+        && request.resource.data.nameKey.size() > 0
+        && request.resource.data.nameKey == request.resource.data.displayName.trim().lower().replace('\\s+', ' ')
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.nameKey)).data.uid == userId;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'nameKey'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30
+        && request.resource.data.nameKey is string
+        && request.resource.data.nameKey == request.resource.data.displayName.trim().lower().replace('\\s+', ' ')
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.nameKey)).data.uid == userId;
+      allow delete: if false;
+    }
+
+    match /usernames/{nameKey} {
+      // Signed-in users can check a candidate name; the mapping itself stores no public identity.
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/usernames/$(nameKey));
+      allow update: if false;
+      allow delete: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.nameKey != nameKey;
+    }
+
+    match /problems/{problemId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'title', 'description', 'category', 'frequency', 'priority',
+          'audience', 'workaround', 'authorId', 'authorName', 'status',
+          'meTooCount', 'wantThisCount', 'devInterestCount', 'createdAt'
+        ])
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.authorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 10
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string
+        && request.resource.data.description.size() >= 20
+        && request.resource.data.description.size() <= 600
+        && request.resource.data.category is string
+        && request.resource.data.frequency in ['Daily', 'Weekly', 'Monthly', 'Rarely']
+        && request.resource.data.priority in ['Low', 'Medium', 'High']
+        && request.resource.data.status == 'open'
+        && request.resource.data.meTooCount == 0
+        && request.resource.data.wantThisCount == 0
+        && request.resource.data.devInterestCount == 0;
+      allow update, delete: if request.auth != null
+        && resource.data.authorId == request.auth.uid;
+
+      match /replies/{replyId} {
+        allow read: if true;
+        allow create: if request.auth != null
+          && exists(/databases/$(database)/documents/problems/$(problemId))
+          && request.resource.data.keys().hasOnly(['authorId', 'authorName', 'text', 'createdAt'])
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.authorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+      }
+    }
+  }
+}

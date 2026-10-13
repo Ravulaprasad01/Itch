@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Flame, Plus, Compass, Layers, Menu, X, Sparkles } from 'lucide-react';
+import Image from 'next/image';
+import { Plus, Compass, Layers, Menu, X, Sparkles } from 'lucide-react';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -12,13 +13,11 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="relative w-9 h-9 rounded-control gradient-fire flex items-center justify-center text-bg font-black text-base shadow-glow-accent group-hover:scale-105 transition-transform duration-200">
-            <Flame className="w-5 h-5 text-bg fill-bg stroke-[2.5]" />
-          </div>
+          <Image src="/itch-mark.svg" alt="" width={36} height={36} className="relative h-9 w-9 rounded-xl shadow-glow-accent transition-transform duration-200 group-hover:scale-105" />
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="font-black text-lg tracking-tight text-white group-hover:text-accent transition-colors duration-150">
-                Itch
+                Itch.
               </span>
               <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-accent/15 text-accent border border-accent/30 tracking-wider">
                 BETA

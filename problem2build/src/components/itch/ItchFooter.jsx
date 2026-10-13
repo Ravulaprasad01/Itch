@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function ItchFooter() {
   // Avoid hydration mismatch by only rendering year on client
@@ -14,18 +15,24 @@ export default function ItchFooter() {
         <div className="flex flex-col gap-6 border-b border-white/[0.05] pb-8 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-3">
             <Link href="/" className="inline-flex items-center gap-2.5">
-              <img src="/itch-icon.svg" alt="" className="h-8 w-8 rounded-lg" />
-              <span className="text-base font-black tracking-tight text-white">Itch</span>
+              <Image src="/itch-mark.svg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg transition-transform duration-300 hover:-rotate-6 hover:scale-105" />
+              <span className="text-base font-black tracking-tight text-white">Itch.</span>
             </Link>
             <p className="max-w-sm text-xs leading-relaxed text-tertiary/60">
               Share everyday problems, find people who understand them, and help builders see what matters.
             </p>
           </div>
 
-          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-tertiary/60">
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-x-8 gap-y-3 text-xs text-tertiary/60 sm:grid-cols-3">
             <Link href="/explore" className="transition-colors hover:text-on-surface">Explore</Link>
-            <Link href="/discover" className="transition-colors hover:text-on-surface">Developer Feed</Link>
+            <Link href="/community" className="transition-colors hover:text-on-surface">Community</Link>
             <Link href="/problems/new" className="transition-colors hover:text-on-surface">Post a Problem</Link>
+            <Link href="/about" className="transition-colors hover:text-on-surface">About</Link>
+            <Link href="/how-it-works" className="transition-colors hover:text-on-surface">How it works</Link>
+            <Link href="/privacy" className="transition-colors hover:text-on-surface">Privacy</Link>
+            <Link href="/terms" className="transition-colors hover:text-on-surface">Terms</Link>
+            <Link href="/community-guidelines" className="transition-colors hover:text-on-surface">Community guidelines</Link>
+            <Link href="/contact" className="transition-colors hover:text-on-surface">Contact</Link>
           </nav>
         </div>
 

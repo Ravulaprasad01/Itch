@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -9,28 +11,31 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   ChevronRight,
-  Clock3,
+  Code2,
   Heart,
   Home,
   MessageSquareText,
   PencilLine,
+  Pause,
   Plane,
+  Play,
   Search,
   ShieldCheck,
   Sparkles,
   TrendingUp,
-  UserRound,
   Users,
 } from 'lucide-react';
-import { MOCK_PROBLEMS } from '@/lib/mock-data';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import VoltageLink from '@/components/itch/VoltageLink';
 
 function ItchBrand() {
   return (
     <div className="flex items-center gap-3">
-      <img src="/itch-icon.svg" alt="Itch logo" className="h-11 w-11 rounded-2xl object-cover transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-[-3deg]" />
+      <Image src="/itch-mark.svg" alt="Itch logo" width={44} height={44} className="h-11 w-11 rounded-2xl object-cover transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-[-3deg]" />
       <div className="flex flex-col items-start">
         <span className="text-3xl font-black leading-none tracking-[-0.06em] text-white" style={{ fontFamily: '\"Plus Jakarta Sans\", \"Inter\", \"Segoe UI\", sans-serif' }}>
-          Itch
+          Itch.
         </span>
         <span className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/55" style={{ fontFamily: '\"Plus Jakarta Sans\", \"Inter\", \"Segoe UI\", sans-serif' }}>
           Post it. Back it. Build it.
@@ -54,101 +59,308 @@ const CATEGORIES = [
 const FAQ = [
   {
     q: 'Is it free?',
-    a: 'Yes. Posting, supporting, and browsing are free in the current build.',
+    a: 'Yes. You can browse public problems and join the community for free.',
   },
   {
-    q: 'Is my post public?',
-    a: 'Yes. Posts are public so other people can validate the problem and developers can discover it.',
+    q: 'How do I post a problem?',
+    a: 'Use Post a Problem to describe what happened, who it affects, and what you have tried. Sign in with Google to publish it under your display name.',
   },
   {
-    q: 'Who owns my idea?',
-    a: 'You keep ownership of the problem details you post. The platform is not a claim or transfer agreement.',
+    q: 'Is my problem shared publicly?',
+    a: 'Drafts stay in this browser until you submit. Submitted problems appear in Explore with your Google display name; your email is not shown.',
   },
   {
-    q: 'Who can build?',
-    a: 'Anyone who wants to explore a problem can browse the feed and signal interest. The current build does not require you to be a developer to post.',
+    q: 'Do I need to share private details?',
+    a: 'No. Keep the description focused on the problem and leave out sensitive information.',
   },
   {
-    q: 'Do I need to be a developer?',
-    a: 'No. You can post a problem, support a problem, or comment without writing code.',
+    q: 'How do I find problems like mine?',
+    a: 'Browse the problem board and search by topic or keyword to find related stories.',
+  },
+  {
+    q: 'How do I join a conversation?',
+    a: 'Open any problem and sign in to add a reply. Replies appear for everyone in that problem’s conversation.',
   },
 ];
 
-function handleFaqNotePointerMove(event) {
-  if (
-    event.pointerType !== 'mouse'
-    || window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    || !window.matchMedia('(min-width: 1280px) and (hover: hover) and (pointer: fine)').matches
-  ) return;
-
-  const bounds = event.currentTarget.getBoundingClientRect();
-  const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-  const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-
-  event.currentTarget.style.setProperty('--faq-note-tilt-x', `${-y * 5}deg`);
-  event.currentTarget.style.setProperty('--faq-note-tilt-y', `${x * 5}deg`);
-}
-
-function resetFaqNotePointer(event) {
-  event.currentTarget.style.setProperty('--faq-note-tilt-x', '0deg');
-  event.currentTarget.style.setProperty('--faq-note-tilt-y', '0deg');
-}
-
-const STEPS = [
+const PRODUCT_FLOW = [
   {
+    label: 'Share',
     icon: PencilLine,
-    num: '01',
-    badge: 'SHARE',
-    title: 'Share the friction',
-    body: 'Post the problem in under 30 seconds with a short description, what happens now, and who it affects.',
-    foot: 'Takes under 30 seconds',
+    userMessage: 'I keep running into the same frustrating problem.',
+    reply: 'Describe what happened and who it affects, then publish it under your display name.',
+    action: 'Write a problem',
+    href: '/problems/new',
   },
   {
+    label: 'Find support',
+    icon: Heart,
+    userMessage: 'Does this happen to anyone else?',
+    reply: 'Browse submitted problems and select “Me Too” to indicate a shared experience, or “Want This” to express interest in a potential solution.',
+    action: 'Explore problems',
+    href: '/explore',
+  },
+  {
+    label: 'Join in',
     icon: MessageSquareText,
-    num: '02',
-    badge: 'SUPPORT',
-    title: 'Support the pain',
-    body: 'People say “Me Too,” add “I Want This,” and leave comments so the issue is validated by real people.',
-    foot: 'Comment and signal from the real community',
+    userMessage: 'Can I find people dealing with something similar?',
+    reply: 'Browse by topic and join conversations to add context and learn how others experience the same friction.',
+    action: 'Browse community',
+    href: '/community',
   },
   {
-    icon: UserRound,
-    num: '03',
-    badge: 'BUILD',
-    title: 'Build with evidence',
-    body: 'Developers browse the strongest problems and click “I’m Interested” when there is real demand to act on.',
-    foot: 'Signal-based discovery, not guesswork',
+    label: 'Build',
+    icon: Code2,
+    userMessage: 'Could this become a better tool or service?',
+    reply: 'Builders can explore repeated frustrations and the real-world context behind them in the developer feed.',
+    action: 'See developer feed',
+    href: '/discover',
   },
 ];
 
-const STEP_NOTES = [
-  {
-    title: 'Name the hassle',
-    body: 'What keeps going wrong in your day?',
-    color: 'flow-note-yellow',
-  },
-  {
-    title: 'See who relates',
-    body: '“Me too” shows when others share it.',
-    color: 'flow-note-mint',
-  },
-  {
-    title: 'Help builders notice',
-    body: 'Clear demand helps builders choose what to explore.',
-    color: 'flow-note-blue',
-  },
+function InteractiveFlowChat() {
+  const [activeStep, setActiveStep] = useState(0);
+  const [typedReply, setTypedReply] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
+  const step = PRODUCT_FLOW[activeStep];
+
+  useEffect(() => {
+    setTypedReply('');
+    setIsTyping(true);
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setTypedReply(step.reply);
+      setIsTyping(false);
+      return undefined;
+    }
+
+    let typeTimer;
+    const startTimer = window.setTimeout(() => {
+      let character = 0;
+      typeTimer = window.setInterval(() => {
+        character += 1;
+        setTypedReply(step.reply.slice(0, character));
+        if (character >= step.reply.length) {
+          window.clearInterval(typeTimer);
+          setIsTyping(false);
+        }
+      }, 18);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(startTimer);
+      if (typeTimer) window.clearInterval(typeTimer);
+    };
+  }, [activeStep, step.reply]);
+
+  return (
+    <div className="journey-chat" data-scroll-reveal>
+      <div className="journey-chat-topbar">
+        <div className="journey-chat-brand"><span><MessageSquareText size={17}/></span><div><b>Itch guide</b><small>See what you can do here</small></div></div>
+        <div className="journey-chat-status"><i/> INTERACTIVE TOUR</div>
+      </div>
+      <div className="journey-chat-layout">
+        <div className="journey-chat-steps" role="group" aria-label="Explore what Itch can do">
+          {PRODUCT_FLOW.map((item, index) => {
+            const Icon = item.icon;
+            return <button key={item.label} type="button" aria-pressed={activeStep === index} aria-controls="journey-chat-panel" onClick={() => setActiveStep(index)}>
+              <span className="journey-chat-step-icon"><Icon size={16}/></span><span><small>0{index + 1}</small><b>{item.label}</b></span><ChevronRight size={15}/>
+            </button>;
+          })}
+        </div>
+        <div id="journey-chat-panel" className="journey-chat-panel" role="tabpanel" aria-live="polite" aria-label={`${step.label} example`}>
+          <div className="journey-chat-intro"><span className="journey-chat-avatar"><MessageSquareText size={15}/></span><p>What would you like to do on Itch?</p></div>
+          <div key={step.label} className="journey-chat-thread">
+            <div className="journey-chat-message journey-chat-message-maya"><span className="journey-chat-person-avatar">M</span><div className="journey-chat-message-copy"><small>Maya</small><p>{step.userMessage}</p></div></div>
+            <div className="journey-chat-message journey-chat-message-jordan"><span className="journey-chat-person-avatar">J</span><div className="journey-chat-message-copy"><small>Jordan</small>{isTyping && !typedReply ? <div className="journey-chat-typing" role="status" aria-label="Jordan is typing"><i/><i/><i/></div> : <p aria-live="off">{typedReply}{isTyping && <span className="journey-chat-caret" aria-hidden="true"/>}</p>}{!isTyping && <Link href={step.href}>{step.action}<ArrowRight size={14}/></Link>}</div></div>
+          </div>
+          <div className="journey-chat-footer"><span>STEP {String(activeStep + 1).padStart(2, '0')} / 04</span><div className="journey-chat-dots" aria-label={`Step ${activeStep + 1} of 4`}>{PRODUCT_FLOW.map((item, index) => <button key={item.label} type="button" aria-label={`Go to ${item.label}`} aria-current={activeStep === index ? 'step' : undefined} onClick={() => setActiveStep(index)}/>)}</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoteSketch({ type }) {
+  return (
+    <svg className="note-sketch" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      {type === 'bank' && (
+        <>
+          <path d="M8 16 24 8l16 8M11 19h26M14 21v14m10-14v14m10-14v14M9 38h30M6 42h36" />
+          <path d="m32 8 4 1-1-4" />
+        </>
+      )}
+      {type === 'privacy' && (
+        <>
+          <path d="M24 7 38 12v10c0 9-6 15-14 19-8-4-14-10-14-19V12l14-5Z" />
+          <path d="m17 24 5 5 10-12" />
+        </>
+      )}
+      {type === 'share' && (
+        <>
+          <path d="m10 34 3-9L31 7l10 10-18 18-9 3 3-9" />
+          <path d="m27 11 10 10M12 37c8 2 17 1 25-3" />
+        </>
+      )}
+      {type === 'support' && (
+        <>
+          <path d="M24 39S8 29 8 18c0-9 12-12 16-3 4-9 16-6 16 3 0 11-16 21-16 21Z" />
+          <path d="M6 11 3 8m39 3 3-3M24 5V2" />
+        </>
+      )}
+      {type === 'build' && (
+        <>
+          <path d="M17 29c0-4-6-7-6-14a13 13 0 0 1 26 0c0 7-6 10-6 14H17Zm1 5h12m-10 5h8m-4-34v3" />
+          <path d="m5 16 4 1m30-1 4-1M11 5l3 3m20-3-3 3" />
+        </>
+      )}
+      {type === 'validation' && (
+        <>
+          <path d="M24 5a19 19 0 1 0 19 19" />
+          <path d="m13 24 8 8L43 8" />
+          <path d="m36 7 7 1-1-7" />
+        </>
+      )}
+      {type === 'think' && (
+        <>
+          <path d="M18 34c-1-4-7-7-7-15a13 13 0 0 1 26 0c0 7-5 10-7 15H18Z" />
+          <path d="M19 39h10m-8 4h6m-2-21c0-3 5-3 5 0 0 2-3 2-3 5m0 4v.2" />
+        </>
+      )}
+      {type === 'question' && (
+        <>
+          <path d="M24 41c-3-4-10-7-14-14-4-8 1-18 9-19 7-1 9 5 11 8 2-3 4-9 11-8 8 1 13 11 9 19-4 7-11 10-14 14l-6 5-6-5Z" transform="translate(-2 -3) scale(.96)" />
+          <path d="M21 19c1-5 10-5 10 1 0 3-4 4-5 7m0 5v.2" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+const HERO_NOTES = [
+  { label: 'AT HOME', title: '“Why is this simple thing such a hassle?”', detail: 'Start with the everyday moment you wish worked better.', tone: 'coral', icon: Home },
+  { label: 'AT WORK', title: '“There has to be an easier way to do this.”', detail: 'A workaround can be the first clue to a better tool.', tone: 'lilac', icon: BriefcaseBusiness },
+  { label: 'ON THE GO', title: '“I can’t be the only one dealing with this.”', detail: 'Find the people who recognize the same friction.', tone: 'aqua', icon: Users },
 ];
+
+function HeroNoteFeature({ active, onChange }) {
+  const [hovering, setHovering] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const noteRef = useRef(null);
+  const note = HERO_NOTES[active];
+  const NoteIcon = note.icon;
+  const paused = hovering || focused || manuallyPaused;
+
+  useEffect(() => {
+    if (paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const timer = window.setInterval(() => onChange(index => (index + 1) % HERO_NOTES.length), 5600);
+    return () => window.clearInterval(timer);
+  }, [onChange, paused]);
+
+  const updateTilt = (event) => {
+    if (event.pointerType !== 'mouse' || !noteRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    noteRef.current.style.setProperty('--tilt-x', `${x * 5}deg`);
+    noteRef.current.style.setProperty('--tilt-y', `${y * -5}deg`);
+  };
+
+  const resetTilt = () => {
+    if (!noteRef.current) return;
+    noteRef.current.style.setProperty('--tilt-x', '0deg');
+    noteRef.current.style.setProperty('--tilt-y', '0deg');
+  };
+
+  const toggleRotation = () => {
+    if (manuallyPaused) {
+      setManuallyPaused(false);
+      setHovering(false);
+      setFocused(false);
+      return;
+    }
+    setManuallyPaused(true);
+  };
+
+  return (
+    <div
+      className="hero-note-stage"
+      onPointerEnter={() => setHovering(true)}
+      onPointerLeave={() => { setHovering(false); resetTilt(); }}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
+      onPointerMove={updateTilt}
+    >
+      <div className="hero-stage-caption"><span><i /> A THOUGHT WORTH KEEPING</span><span>ITCH / 0{active + 1}</span></div>
+      <div id="hero-note-panel" className="hero-note-stack" role="tabpanel" aria-roledescription="note" aria-live={paused ? 'polite' : 'off'} aria-labelledby={`hero-note-tab-${active}`}>
+        <div className="hero-note-shadow hero-note-shadow-back" aria-hidden="true"><span>little things</span><span>matter, too</span></div>
+        <div className="hero-note-shadow hero-note-shadow-front" aria-hidden="true"><span>ONE SMALL CHANGE</span><span className="shadow-mark">↗</span></div>
+        <button
+          ref={noteRef}
+          type="button"
+          className={`hero-feature-note hero-feature-note-${note.tone}`}
+          onClick={() => onChange(index => (index + 1) % HERO_NOTES.length)}
+          aria-label={`${note.title} Select the next note`}
+        >
+          <span className="hero-note-tape" aria-hidden="true" />
+          <span className="hero-note-meta"><span>{note.label}</span><NoteIcon size={18} /></span>
+          <strong key={note.title} className="hero-note-quote">{note.title}</strong>
+          <span className="hero-note-detail">{note.detail}</span>
+          <span className="hero-note-foot"><span>THERE’S A PLACE TO START</span><ArrowUpRight size={17} /></span>
+        </button>
+      </div>
+      <div className="hero-note-controls">
+        <div className="hero-note-dots" role="tablist" aria-label="Choose a note">
+          {HERO_NOTES.map((item, index) => <button key={item.tone} id={`hero-note-tab-${index}`} type="button" role="tab" aria-controls="hero-note-panel" aria-label={item.label} aria-selected={active === index} onClick={() => onChange(index)} />)}
+        </div>
+        <button type="button" className="hero-note-motion" onClick={toggleRotation} aria-label={manuallyPaused ? 'Play note rotation' : 'Pause note rotation'}>
+          {manuallyPaused ? <Play size={13} /> : <Pause size={13} />}
+          <span>{manuallyPaused ? 'PLAY' : 'PAUSE'}</span>
+        </button>
+      </div>
+      <p className="hero-note-caption">A small frustration can be the beginning of a useful idea.</p>
+    </div>
+  );
+}
 
 export default function LandingPage() {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [year, setYear] = useState(null);
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeFaq, setActiveFaq] = useState(0);
+  const [activeHeroNote, setActiveHeroNote] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [signOutPending, setSignOutPending] = useState(false);
+  const changeHeroNote = React.useCallback((update) => setActiveHeroNote(update), []);
   const heroRef = useRef(null);
 
   useEffect(() => {
     setYear(new Date().getFullYear());
   }, []);
+
+  useEffect(() => {
+    if (!auth) return undefined;
+    return onAuthStateChanged(auth, user => {
+      setIsAuthenticated(Boolean(user));
+      if (user) router.replace('/explore');
+    });
+  }, [router]);
+
+  const handleHomeSignOut = async () => {
+    if (signOutPending) return;
+    setSignOutPending(true);
+    try {
+      const signOutTask = auth ? signOut(auth) : Promise.resolve();
+      router.replace('/thanks');
+      await signOutTask;
+    } catch (error) {
+      console.error('Unable to sign out:', error);
+      router.replace('/');
+      setSignOutPending(false);
+    }
+  };
 
   useEffect(() => {
     const revealTargets = document.querySelectorAll('[data-scroll-reveal], [data-scroll-stagger]');
@@ -230,9 +442,7 @@ export default function LandingPage() {
     };
   }, []);
 
-  const filteredProblems = MOCK_PROBLEMS.filter((problem) => {
-    return selectedCategory === 'All' || problem.category?.name === selectedCategory;
-  });
+  const filteredProblems = [];
 
   return (
     <div className="bg-background text-on-surface antialiased min-h-screen flex flex-col">
@@ -242,118 +452,78 @@ export default function LandingPage() {
         className={`sticky top-0 z-50 border-b border-white/5 bg-background/80 backdrop-blur-xl transition-transform duration-300 ease-in-out ${headerVisible ? 'translate-y-0' : 'pointer-events-none -translate-y-full'}`}
       >
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4 px-5 py-4 sm:px-6">
-          <Link href="/" className="group flex items-center gap-3">
+          <Link href={isAuthenticated ? '/explore' : '/'} className="group flex items-center gap-3">
             <ItchBrand />
           </Link>
 
           <nav className="flex items-center gap-2 sm:gap-3">
-            <Link href="/explore" className="rounded-full px-3 py-2 text-sm font-medium text-white/80 transition hover:text-white">
-              Explore
-            </Link>
-            <Link href="/problems/new" className="rounded-full bg-primary-container px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(249,115,22,0.32)] transition hover:bg-primary">
-              Post a Problem
-            </Link>
-            <Link href="/auth" className="hidden rounded-full border border-white/10 bg-surface-container/60 px-3 py-2 text-sm font-medium text-white transition hover:border-white/20 sm:inline-flex">
-              Log in / Sign up
-            </Link>
+            {isAuthenticated ? <>
+              <VoltageLink href="/explore" className="home-nav-voltage-link">
+                Explore Problems
+              </VoltageLink>
+              <VoltageLink href="/community" className="home-nav-voltage-link">
+                Community
+              </VoltageLink>
+              <VoltageLink href="/problems/new" className="home-voltage-link">
+                Post a Problem
+              </VoltageLink>
+              <button type="button" onClick={handleHomeSignOut} disabled={signOutPending} className="home-header-signout" aria-label="Sign out">{signOutPending ? 'Signing out…' : 'Sign out'}</button>
+            </> : <>
+              <VoltageLink href="/explore" className="home-nav-voltage-link">
+                Explore Problems
+              </VoltageLink>
+              <VoltageLink href="/auth" className="home-voltage-link">
+                Sign in/up
+              </VoltageLink>
+            </>}
           </nav>
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className="home-page-main flex-1">
         <section
           ref={heroRef}
-          className="relative overflow-hidden px-5 pb-16 pt-6 sm:pt-8"
+          className="home-hero relative overflow-hidden px-5 pb-16 pt-6 sm:pt-8"
         >
-          <div data-hero-background className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -top-20 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-primary-container/[0.07] blur-[140px]" />
-            <div className="absolute right-0 top-48 h-[500px] w-[500px] rounded-full bg-secondary/[0.04] blur-[120px]" />
-            <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-primary-container/[0.03] blur-[110px]" />
+          <div data-hero-background className="home-hero-backdrop pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <span className="hero-backdrop-orbit hero-backdrop-orbit-one" />
+            <span className="hero-backdrop-orbit hero-backdrop-orbit-two" />
+            <span className="hero-backdrop-cross hero-backdrop-cross-one">+</span>
+            <span className="hero-backdrop-cross hero-backdrop-cross-two">+</span>
           </div>
 
           <div className="relative mx-auto max-w-[1180px]">
-            <aside className="hero-sticky-notes pointer-events-none absolute inset-x-0 top-36 z-10 hidden justify-between xl:flex" aria-label="Problems people want to solve">
-              {[MOCK_PROBLEMS[0], MOCK_PROBLEMS[1]].map((problem, index) => (
-                <Link
-                  key={problem.id}
-                  href={`/problems/${problem.slug}`}
-                  className={`hero-sticky-note pointer-events-auto group relative block w-[184px] rounded-sm px-5 pb-5 pt-7 text-left shadow-[0_18px_42px_rgba(0,0,0,0.35)] transition duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${index === 0 ? 'hero-sticky-note-yellow' : 'hero-sticky-note-mint'}`}
-                  aria-label={`Explore problem: ${problem.title}`}
-                >
-                  <span className="hero-sticky-pin" aria-hidden="true" />
-                  <span className="block font-mono text-[9px] font-bold uppercase tracking-[0.15em] opacity-60">
-                    {problem.category?.name}
-                  </span>
-                  <span className="mt-3 block text-sm font-extrabold leading-snug tracking-[-0.03em]">
-                    {index === 0 ? 'I waste hours fixing bank files.' : 'I want text shortcuts that stay private.'}
-                  </span>
-                  <span className="mt-2 block text-xs leading-relaxed opacity-75">
-                    {index === 0
-                      ? 'Different formats make simple bookkeeping hard.'
-                      : 'Saved phrases should stay on my computer.'}
-                  </span>
-                  <span className="mt-5 flex items-center justify-between border-t border-current/15 pt-3 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] opacity-65">
-                    <span>{problem.meTooCount} people relate</span>
-                    <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
-                  </span>
-                </Link>
-              ))}
-            </aside>
+            <div className="hero-layout">
+              <div data-hero-content className="hero-main-content">
+                <div className="hero-kicker animate-fade-up delay-75"><span /> A place for everyday problems</div>
 
-            <div data-hero-content className="hero-main-content mb-16 flex flex-col items-center text-center">
-              <div className="animate-fade-up delay-75 mb-8 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-surface-container/70 px-4 py-1.5 backdrop-blur-sm">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-container" />
-                <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
-                  Share it → Support it → Build it
-                </span>
+                <h1 className="home-hero-title animate-fade-up delay-100">
+                  <span>That little thing</span>
+                  <span>that bugs you?</span>
+                  <span className="home-hero-title-accent">It matters.</span>
+                </h1>
+
+                <p className="hero-description animate-fade-up delay-150">
+                  Write down what keeps getting in your way. Find people who recognize it, and help builders see what’s worth fixing.
+                </p>
+
+                <div className="hero-actions animate-fade-up delay-200">
+                  <Link href="/problems/new" className="hero-primary-action">
+                    <PencilLine className="h-4 w-4" /> Put it into words <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Link href="/explore" className="hero-secondary-action">
+                    <Search className="h-4 w-4" /> Browse problems
+                  </Link>
+                </div>
+
+                <div className="hero-reassurance animate-fade-up delay-300">
+                  <span><CheckCircle2 size={15} /> Sign in to publish</span>
+                  <i />
+                  <span><ShieldCheck size={15} /> Your email stays private</span>
+                </div>
               </div>
 
-              <h1 className="hero-headline max-w-4xl text-[2rem] font-black leading-[0.95] tracking-[-0.05em] text-white sm:text-[3.6rem] lg:text-[5rem]">
-                <span className="hero-headline-cell"><span>Real</span></span>
-                <span className="hero-headline-cell"><span>Problems.</span></span>
-                <span className="hero-headline-cell"><span>Real</span></span>
-                <span className="hero-headline-cell"><span className="text-shimmer">support.</span></span>
-                <span className="hero-headline-cell"><span>Real</span></span>
-                <span className="hero-headline-cell"><span>builders.</span></span>
-              </h1>
-
-              <p className="animate-fade-up delay-150 mt-6 max-w-2xl text-base text-tertiary sm:text-lg">
-                People post the problems they feel every day. The community supports the pain. Builders discover what is worth solving.
-              </p>
-
-              <div className="animate-fade-up delay-200 mt-8 flex flex-col items-center gap-3 sm:flex-row">
-                <Link
-                  href="/problems/new"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-container px-8 py-3.5 text-sm font-bold text-white shadow-[0_4px_24px_rgba(249,115,22,0.4)] transition duration-200 hover:-translate-y-0.5 hover:bg-primary hover:shadow-[0_8px_28px_rgba(249,115,22,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
-                >
-                  <PencilLine className="h-4 w-4" />
-                  Post a Problem
-                </Link>
-                <Link
-                  href="/explore"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-surface-container/70 px-8 py-3.5 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
-                >
-                  <Search className="h-4 w-4" />
-                  Explore Problems
-                </Link>
-              </div>
-
-              <div className="animate-fade-up delay-300 mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-white/[0.06] bg-surface-container-lowest/60 px-6 py-2.5 font-mono text-[11px] text-tertiary/70">
-                <span className="inline-flex items-center gap-1.5 text-secondary">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Free to use
-                </span>
-                <span className="text-white/10">•</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock3 className="h-3.5 w-3.5" />
-                  Takes under 30 seconds
-                </span>
-                <span className="text-white/10">•</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Starting with our local community
-                </span>
-              </div>
+              <HeroNoteFeature active={activeHeroNote} onChange={changeHeroNote} />
             </div>
 
             {false && <div className="mb-20 grid grid-cols-1 gap-5 lg:grid-cols-12">
@@ -544,161 +714,47 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="px-5 py-12 sm:py-16">
-          <div className="mx-auto max-w-[1180px]">
-            <div data-scroll-reveal className="scroll-reveal mx-auto max-w-4xl border-b border-white/10 pb-10 text-center">
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-primary">What Itch provides</p>
-                <h2 className="mt-3 text-3xl font-black leading-tight text-on-surface sm:text-5xl">A place to turn everyday frustration into buildable opportunity.</h2>
+        <section className="home-process-section home-chapter home-journey home-journey-simple px-5 py-16 sm:py-20">
+          <div className="mx-auto max-w-[980px]">
+            <header data-scroll-reveal className="scroll-reveal journey-simple-heading">
+              <div className="journey-simple-intro">
+                <h2><span>From “this is annoying”</span><span>to “this could be better.”</span></h2>
+                <p>Choose a step to see how Itch helps people share a problem, find support, join a conversation, and connect ideas with builders.</p>
               </div>
-              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-tertiary">
-                Itch connects people who experience a problem with others who share it, then helps developers discover what is worth solving. It makes the need visible; builders decide what to make.
-              </p>
-            </div>
+            </header>
+            <InteractiveFlowChat />
+          </div>
+        </section>
 
-            <div data-scroll-reveal className="scroll-reveal mx-auto mt-10 max-w-4xl">
-              <div data-scroll-stagger className="grid gap-4 sm:grid-cols-3" role="group" aria-label="Choose a step in the Itch process">
-                {STEPS.map((step, index) => {
-                  const Icon = step.icon;
-                  const isActive = activeStep === index;
-                  const note = STEP_NOTES[index];
-
-                  return (
-                    <button
-                      key={step.num}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => setActiveStep(index)}
-                      className={`flow-note group relative min-h-40 rounded-sm px-5 pb-5 pt-7 text-left shadow-[0_12px_30px_rgba(0,0,0,0.22)] transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${note.color} ${isActive ? 'flow-note-active' : ''}`}
-                    >
-                      <span className="hero-sticky-pin" aria-hidden="true" />
-                      <span className="flex items-center justify-between gap-2 font-mono text-[9px] font-bold uppercase tracking-[0.15em] opacity-65">
-                        <span>{step.num} · {step.badge}</span>
-                        <Icon className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" />
-                      </span>
-                      <span className="mt-4 block text-base font-extrabold leading-snug tracking-[-0.03em]">
-                          {note.title}
-                      </span>
-                      <span className="mt-2 block pr-8 text-xs leading-relaxed opacity-75">
-                          {note.body}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-4 overflow-hidden rounded-lg border border-white/10 bg-surface-container/30">
-                <div className="h-1 bg-white/5">
-                  <div
-                    className="h-full bg-primary transition-[width] duration-500 ease-out"
-                    style={{ width: `${((activeStep + 1) / STEPS.length) * 100}%` }}
-                  />
-                </div>
-                <div key={STEPS[activeStep].num} aria-live="polite" className="animate-fade-up grid gap-6 p-6 sm:grid-cols-[1fr_auto] sm:items-center sm:p-8">
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary">
-                      Step {STEPS[activeStep].num} / 03 · {STEPS[activeStep].badge}
-                    </p>
-                    <h3 className="mt-2 text-2xl font-bold text-on-surface">{STEPS[activeStep].title}</h3>
-                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-tertiary">{STEPS[activeStep].body}</p>
-                    <p className="mt-4 text-xs text-tertiary/70">{STEPS[activeStep].foot}</p>
-                  </div>
-                  <Link
-                    href={activeStep === 0 ? '/problems/new' : '/explore'}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-5 py-3 text-sm font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
-                  >
-                    {activeStep === 0 ? 'Post a Problem' : activeStep === 1 ? 'Explore Problems' : 'Explore as a Builder'}
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </div>
-              </div>
+        <section className="home-scope-section home-chapter home-preview-chapter px-5 py-20 sm:py-28">
+          <div className="mx-auto max-w-[980px]">
+            <header className="home-actions-heading"><p className="home-section-eyebrow"><span/> START WHERE YOU ARE</p><h2>Make the next step a small one.</h2><p>Write down what’s getting in your way, find a familiar problem, or follow a topic that matters to you.</p></header>
+            <div className="home-action-notes">
+              <Link href="/problems/new" className="home-action-note home-action-note-write"><span className="home-action-note-top">01 <PencilLine size={17}/></span><strong>Write it down</strong><p>Turn one frustrating moment into a clear problem.</p><span className="home-action-note-link">Post a problem <ArrowUpRight size={15}/></span></Link>
+              <Link href="/explore" className="home-action-note home-action-note-explore"><span className="home-action-note-top">02 <Search size={17}/></span><strong>Find what feels familiar</strong><p>Browse problems and search by topic.</p><span className="home-action-note-link">Explore problems <ArrowUpRight size={15}/></span></Link>
+              <Link href="/community" className="home-action-note home-action-note-follow"><span className="home-action-note-top">03 <Users size={17}/></span><strong>Follow a topic</strong><p>Keep conversations around your interests close.</p><span className="home-action-note-link">Visit community <ArrowUpRight size={15}/></span></Link>
             </div>
           </div>
         </section>
 
-        <section className="border-y border-white/10 px-5 py-10 sm:py-12">
-          <div data-scroll-reveal className="scroll-reveal mx-auto grid max-w-4xl items-center gap-8 md:grid-cols-[1fr_260px]">
-            <div className="text-center md:text-left">
-              <p className="mb-3 inline-flex items-center justify-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
-                <ShieldCheck className="h-4 w-4" /> Clear scope
-              </p>
-              <h2 className="text-3xl font-black leading-tight text-on-surface sm:text-4xl">Validation first. No marketplace promises.</h2>
-              <p className="mt-5 text-lg font-semibold text-on-surface">No payments. No funding proposals. No speculation.</p>
-              <p className="mt-3 text-sm leading-relaxed text-tertiary">
-                Itch helps people post problems, support them with signals and comments, and helps developers discover opportunities. This first version does not process payments or promise that a solution will be built.
-              </p>
+        <section className="home-faq-section home-chapter home-answers px-5 py-20 sm:py-28">
+          <div className="mx-auto max-w-[780px]">
+            <div data-scroll-reveal className="scroll-reveal home-faq-intro"><h2>Before you get started.</h2></div>
+            <div data-scroll-stagger className="home-qa-explorer" aria-label="Frequently asked questions">
+              {FAQ.map((item, index) => <article className={`home-faq-item ${activeFaq === index ? 'is-open' : ''}`} key={item.q}>
+                <button type="button" aria-expanded={activeFaq === index} aria-controls={`home-faq-answer-${index}`} onClick={() => setActiveFaq(activeFaq === index ? -1 : index)}>
+                  <strong>{item.q}</strong><span aria-hidden="true">{activeFaq === index ? '−' : '+'}</span>
+                </button>
+                <div id={`home-faq-answer-${index}`} className={`home-faq-answer ${activeFaq === index ? 'is-open' : ''}`} aria-hidden={activeFaq !== index}><p>{item.a}</p></div>
+              </article>)}
             </div>
-            <Link
-              href="/explore"
-              className="validation-sticky-note group relative block rounded-sm px-5 pb-5 pt-8 text-left shadow-[0_16px_36px_rgba(0,0,0,0.25)] transition duration-300 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_24px_42px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <span className="hero-sticky-pin" aria-hidden="true" />
-              <span className="block font-mono text-[9px] font-bold uppercase tracking-[0.15em] opacity-65">
-                What validation means
-              </span>
-              <span className="mt-3 block text-base font-extrabold leading-snug">
-                First, check if others have the same problem.
-              </span>
-              <span className="mt-2 block text-xs leading-relaxed opacity-75">
-                It shows real interest. It does not guarantee a product or payment.
-              </span>
-              <span className="mt-4 inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.12em] opacity-70">
-                Explore shared problems
-                <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
-              </span>
-            </Link>
           </div>
         </section>
 
-        <section className="px-5 py-12 sm:py-16">
-          <div className="faq-section-layout relative mx-auto max-w-[1180px]">
-            <div className="mx-auto grid max-w-3xl gap-8">
-              <div data-scroll-reveal className="scroll-reveal text-center">
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-primary">Frequently asked questions</p>
-                <h2 className="mx-auto mt-3 max-w-sm text-3xl font-bold text-on-surface sm:text-4xl">Before you get started.</h2>
-              </div>
-
-              <div data-scroll-reveal data-scroll-stagger className="scroll-reveal divide-y divide-white/10 border-y border-white/10">
-                {FAQ.map((item) => (
-                  <details key={item.q} className="group py-5">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-semibold text-on-surface transition-colors hover:text-primary focus-visible:outline-none focus-visible:text-primary">
-                      {item.q}
-                      <span className="text-xl font-light text-primary transition group-open:rotate-45">+</span>
-                    </summary>
-                    <p className="mt-3 max-w-2xl pr-8 text-sm leading-relaxed text-tertiary">{item.a}</p>
-                  </details>
-                ))}
-              </div>
-            </div>
-
-            <div className="faq-thinking-notes" aria-label="Think about a problem to solve">
-              <Link
-                href="/problems/new"
-                className="faq-thinking-note faq-thinking-note-yellow group"
-                onPointerMove={handleFaqNotePointerMove}
-                onPointerLeave={resetFaqNotePointer}
-              >
-                <span className="hero-sticky-pin" aria-hidden="true" />
-                <span className="block font-mono text-[9px] font-bold uppercase tracking-[0.14em] opacity-60">Start with a question</span>
-                <span className="mt-2 block pr-8 text-sm font-extrabold leading-snug">What keeps taking more effort than it should?</span>
-                <span className="mt-3 inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] opacity-65">
-                  Write it down <ArrowUpRight className="h-3 w-3 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                </span>
-              </Link>
-              <Link
-                href="/explore"
-                className="faq-thinking-note faq-thinking-note-mint group"
-                onPointerMove={handleFaqNotePointerMove}
-                onPointerLeave={resetFaqNotePointer}
-              >
-                <span className="hero-sticky-pin" aria-hidden="true" />
-                <span className="block font-mono text-[9px] font-bold uppercase tracking-[0.14em] opacity-60">Think it’s just you?</span>
-                <span className="mt-2 block pr-8 text-sm font-extrabold leading-snug">Look around. Someone else may relate.</span>
-                <span className="mt-3 inline-flex items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.1em] opacity-65">
-                  Find shared problems <ArrowUpRight className="h-3 w-3 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                </span>
-              </Link>
-            </div>
+        <section className="home-closing-section px-5 py-16 sm:py-24">
+          <div data-scroll-reveal className="scroll-reveal home-closing-panel mx-auto max-w-[1180px]">
+            <span className="home-closing-orbit" aria-hidden="true"/><div className="home-closing-copy"><p className="home-section-eyebrow"><span/> START WITH ONE SMALL THING</p><h2>What keeps getting<br/>in your way?</h2><p>Give that everyday frustration a place to start.</p></div>
+            <div className="home-closing-actions"><Link href="/problems/new" className="home-closing-primary">Write it down <ArrowRight size={17}/></Link><Link href="/explore" className="home-closing-secondary">Explore problems <ArrowUpRight size={16}/></Link></div>
           </div>
         </section>
 
@@ -716,8 +772,10 @@ export default function LandingPage() {
           <div>
             <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">Company</p>
             <ul className="space-y-2 text-sm text-tertiary/70">
-              <li><Link href="/" className="transition hover:text-white">About</Link></li>
+              <li><Link href="/about" className="transition hover:text-white">About</Link></li>
+              <li><Link href="/how-it-works" className="transition hover:text-white">How it works</Link></li>
               <li><Link href="/explore" className="transition hover:text-white">Explore</Link></li>
+              <li><Link href="/community" className="transition hover:text-white">Community</Link></li>
               <li><Link href="/problems/new" className="transition hover:text-white">Post a Problem</Link></li>
             </ul>
           </div>
@@ -725,10 +783,10 @@ export default function LandingPage() {
           <div>
             <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">Legal</p>
             <ul className="space-y-2 text-sm text-tertiary/70">
-              <li><Link href="/" className="transition hover:text-white">Community Rules</Link></li>
-              <li><Link href="/" className="transition hover:text-white">Privacy</Link></li>
-              <li><Link href="/" className="transition hover:text-white">Terms</Link></li>
-              <li><Link href="/" className="transition hover:text-white">Contact</Link></li>
+              <li><Link href="/community-guidelines" className="transition hover:text-white">Community Guidelines</Link></li>
+              <li><Link href="/privacy" className="transition hover:text-white">Privacy</Link></li>
+              <li><Link href="/terms" className="transition hover:text-white">Terms</Link></li>
+              <li><Link href="/contact" className="transition hover:text-white">Contact</Link></li>
             </ul>
           </div>
         </div>

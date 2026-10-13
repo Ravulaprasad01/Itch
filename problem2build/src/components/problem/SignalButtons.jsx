@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Check, User, Sparkles, Code2 } from 'lucide-react';
+import ThanksCommunityModal from '@/components/itch/ThanksCommunityModal';
 
 export default function SignalButtons({
   meTooInitial = 0,
@@ -9,6 +10,8 @@ export default function SignalButtons({
   devInterestInitial = 0,
   problemId,
 }) {
+  const [thanksOpen, setThanksOpen] = useState(false);
+  const closeThanks = useCallback(() => setThanksOpen(false), []);
   const [meToo, setMeToo] = useState({
     active: false,
     count: meTooInitial,
@@ -30,6 +33,7 @@ export default function SignalButtons({
   const handleToggleMeToo = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!meToo.active) setThanksOpen(true);
     setMeToo((prev) => ({
       active: !prev.active,
       count: prev.active ? prev.count - 1 : prev.count + 1,
@@ -43,6 +47,7 @@ export default function SignalButtons({
   const handleToggleWantThis = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!wantThis.active) setThanksOpen(true);
     setWantThis((prev) => ({
       active: !prev.active,
       count: prev.active ? prev.count - 1 : prev.count + 1,
@@ -56,6 +61,7 @@ export default function SignalButtons({
   const handleToggleDevInterest = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!devInterest.active) setThanksOpen(true);
     setDevInterest((prev) => ({
       active: !prev.active,
       count: prev.active ? prev.count - 1 : prev.count + 1,
@@ -67,6 +73,7 @@ export default function SignalButtons({
   };
 
   return (
+    <>
     <div className="flex flex-wrap items-center gap-2.5 pt-1">
       {/* Me Too Button */}
       <button
@@ -161,5 +168,7 @@ export default function SignalButtons({
         </span>
       </button>
     </div>
+    {thanksOpen && <ThanksCommunityModal onClose={closeThanks} />}
+    </>
   );
 }

@@ -3,7 +3,8 @@ import RouteTransition from '@/components/layout/RouteTransition';
 
 export const metadata = {
   title: "Itch — Got a problem? Somebody's itching to solve it.",
-  description: "A peer-to-peer validation ecosystem where real frictions meet engineering conviction.",
+  description: "Share everyday problems, find people who understand them, and help builders see what matters.",
+  icons: { icon: '/itch-mark.svg', apple: '/itch-mark.svg' },
 };
 
 export default function RootLayout({ children }) {

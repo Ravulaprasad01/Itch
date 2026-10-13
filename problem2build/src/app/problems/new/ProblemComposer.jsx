@@ -1,9 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Check, Heart, Save, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { onAuthStateChanged } from 'firebase/auth';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Lightbulb, ShieldCheck } from 'lucide-react';
 import ItchHeader from '@/components/itch/ItchHeader';
 import ItchFooter from '@/components/itch/ItchFooter';
+import { auth, db, ensurePublicUser, getPublicDisplayName, isFirebaseConfigured } from '@/lib/firebase';
 
 const CATEGORIES = [
   'Productivity',
@@ -22,6 +26,12 @@ const PRIORITIES = [
   { value: 'High', description: 'Blocks important work or causes significant impact.' },
 ];
 const DRAFT_KEY = 'itch-problem-draft-v1';
+const COMPOSER_STEPS = [
+  { title: 'The moment', hint: 'Describe what keeps getting in your way.' },
+  { title: 'Who it affects', hint: 'Add the people and workarounds around it.' },
+  { title: 'How it matters', hint: 'Set the impact and signals that fit.' },
+  { title: 'Review', hint: 'Give it one last look before publishing to the community.' },
+];
 
 export default function ProblemComposer() {
   const [title, setTitle] = useState('');
@@ -31,11 +41,19 @@ export default function ProblemComposer() {
   const [priority, setPriority] = useState('Medium');
   const [audience, setAudience] = useState('');
   const [workaround, setWorkaround] = useState('');
-  const [meToo, setMeToo] = useState(false);
-  const [fundingInterest, setFundingInterest] = useState(false);
-  const [fundingAmount, setFundingAmount] = useState('');
   const [notice, setNotice] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [submittedProblemId, setSubmittedProblemId] = useState('');
+  const [authorName, setAuthorName] = useState('');
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    if (!auth) return undefined;
+    return onAuthStateChanged(auth, setCurrentUser);
+  }, []);
 
   useEffect(() => {
     try {
@@ -48,57 +66,106 @@ export default function ProblemComposer() {
       setPriority(draft.priority || 'Medium');
       setAudience(draft.audience || '');
       setWorkaround(draft.workaround || '');
-      setMeToo(Boolean(draft.meToo));
-      setFundingInterest(Boolean(draft.fundingInterest));
-      setFundingAmount(draft.fundingAmount || '');
       setNotice('Draft restored from this browser.');
     } catch {
       window.localStorage.removeItem(DRAFT_KEY);
     }
   }, []);
 
-  const handleSaveDraft = () => {
-    window.localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      title,
-      description,
-      category,
-      frequency,
-      priority,
-      audience,
-      workaround,
-      meToo,
-      fundingInterest,
-      fundingAmount,
-    }));
-    setNotice('Draft saved in this browser.');
-  };
-
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!frequency) {
-      setNotice('Choose how often this problem happens before reviewing it.');
-      document.getElementById('frequency-options')?.focus();
+    if (step === 0) {
+      const fields = ['problem-title', 'problem-description', 'problem-category'].map(id => document.getElementById(id));
+      const invalid = fields.find(field => field && !field.checkValidity());
+      if (invalid) { invalid.reportValidity(); return; }
+      if (!frequency) {
+        setNotice('Choose how often this problem happens to continue.');
+        document.getElementById('frequency-options')?.focus();
+        return;
+      }
+      setNotice('');
+      setStep(1);
       return;
     }
+    if (step < 2) { setNotice(''); setStep(step + 1); return; }
     setShowPreview(true);
-    setNotice('Preview only. This build does not publish or send your problem yet.');
+    setNotice('Review your details, then publish your problem for the community.');
+    setStep(3);
+  };
+
+  const goBack = () => { setNotice(''); setStep(Math.max(0, step - 1)); };
+
+  const handleSubmitProblem = async () => {
+    if (!isFirebaseConfigured || !db || !auth) {
+      setNotice('Firebase is not configured yet. Add your Firebase web app values to .env.local, then restart the app.');
+      return;
+    }
+    if (!currentUser) {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, description, category, frequency, priority, audience, workaround }));
+      window.location.href = `/auth?next=${encodeURIComponent('/problems/new')}`;
+      return;
+    }
+
+    setSubmitting(true);
+    setNotice('');
+    try {
+      const publicUser = await ensurePublicUser(currentUser);
+      const displayName = publicUser.displayName || getPublicDisplayName(currentUser);
+      const post = await addDoc(collection(db, 'problems'), {
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        frequency,
+        priority,
+        audience: audience.trim(),
+        workaround: workaround.trim(),
+        authorId: currentUser.uid,
+        authorName: displayName,
+        status: 'open',
+        meTooCount: 0,
+        wantThisCount: 0,
+        devInterestCount: 0,
+        createdAt: serverTimestamp(),
+      });
+      setAuthorName(displayName);
+      setSubmittedProblemId(post.id);
+      setSubmitted(true);
+      setNotice(`Your problem is live in Explore as ${displayName}. Your email is private.`);
+      window.localStorage.removeItem(DRAFT_KEY);
+    } catch (error) {
+      setNotice(error?.message || 'We could not publish your problem. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background text-on-surface antialiased">
       <ItchHeader />
 
-      <main className="mx-auto w-full max-w-[860px] px-5 pb-16 pt-24 sm:px-8">
-        <header className="mb-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary">Post a problem</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">What keeps getting in your way?</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-tertiary">
-            Describe the friction in plain language. People can support it, and builders can decide whether to take it on.
-          </p>
+      <main className="composer-page">
+        <header className="composer-hero">
+          <div>
+            <p className="composer-kicker"><span /> A NOTE TO THE FUTURE</p>
+            <h1>Start with the<br /><em>thing that bugs you.</em></h1>
+            <p>One clear moment is enough. We’ll help you shape it into something others can understand.</p>
+          </div>
+          <div className="composer-hero-note-stack" aria-label="Quick tips for writing a problem">
+            <article className="composer-hero-note composer-hero-note-1"><span>START WITH A MOMENT</span><strong>What happened?</strong><i /></article>
+            <article className="composer-hero-note composer-hero-note-2"><span>KEEP IT SIMPLE</span><strong>One clear example is enough.</strong><i /></article>
+            <article className="composer-hero-note composer-hero-note-3"><span>YOUR PRIVACY</span><strong>Your email stays private.</strong><i /></article>
+          </div>
         </header>
 
-        <form onSubmit={handleSubmit} className="divide-y divide-white/10 border-y border-white/10">
-          <section className="space-y-5 py-6" aria-labelledby="problem-section-title">
+        <div className="composer-layout">
+        <form onSubmit={handleSubmit} className="composer-form">
+          <nav className="composer-stepper" aria-label="Problem post steps">
+            {COMPOSER_STEPS.map((item, index) => <button key={item.title} type="button" disabled={index > step} aria-current={step === index ? 'step' : undefined} onClick={() => { if (index <= step) { setStep(index); setShowPreview(false); setNotice(''); } }}>
+              <span>{index < step ? <CheckCircle2 size={15}/> : `0${index + 1}`}</span><b>{item.title}</b>
+            </button>)}
+          </nav>
+
+          {step === 0 && <section className="problem-form-section space-y-5" aria-labelledby="problem-section-title">
             <div>
               <h2 id="problem-section-title" className="text-base font-semibold text-on-surface">The problem</h2>
               <p className="mt-1 text-xs text-tertiary">Start with what happens, not the product you want built.</p>
@@ -153,7 +220,7 @@ export default function ProblemComposer() {
 
               <fieldset id="frequency-options" tabIndex={-1} className="space-y-2 focus:outline-none">
                 <legend className="text-sm font-medium text-on-surface">How often does it happen?</legend>
-                <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-surface-container/30 p-1">
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-surface-container/30 p-1 sm:grid-cols-4">
                   {FREQUENCIES.map((item) => (
                     <button
                       key={item}
@@ -168,9 +235,9 @@ export default function ProblemComposer() {
                 </div>
               </fieldset>
             </div>
-          </section>
+          </section>}
 
-          <section className="space-y-5 py-6" aria-labelledby="context-section-title">
+          {step === 1 && <section className="problem-form-section space-y-5" aria-labelledby="context-section-title">
             <div>
               <h2 id="context-section-title" className="text-base font-semibold text-on-surface">A little more context</h2>
               <p className="mt-1 text-xs text-tertiary">These details help people understand the impact.</p>
@@ -201,12 +268,13 @@ export default function ProblemComposer() {
                 className="w-full resize-y rounded-lg border border-white/10 bg-surface-container/40 px-4 py-3 text-sm leading-relaxed text-on-surface outline-none transition placeholder:text-tertiary/45 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
               />
             </div>
-          </section>
+          </section>}
 
-          <section className="space-y-5 py-6" aria-labelledby="signals-section-title">
+          {step === 2 && <>
+          <section className="problem-form-section space-y-5" aria-labelledby="signals-section-title">
             <div>
-              <h2 id="signals-section-title" className="text-base font-semibold text-on-surface">Priority and support</h2>
-              <p className="mt-1 text-xs text-tertiary">Signals help others understand how much this matters to you.</p>
+              <h2 id="signals-section-title" className="text-base font-semibold text-on-surface">How much does it matter?</h2>
+              <p className="mt-1 text-xs text-tertiary">Choose how strongly this problem affects your day.</p>
             </div>
 
             <fieldset className="space-y-2">
@@ -227,79 +295,31 @@ export default function ProblemComposer() {
               </div>
             </fieldset>
 
-            <button
-              type="button"
-              aria-pressed={meToo}
-              onClick={() => setMeToo(!meToo)}
-              className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${meToo ? 'border-rose-400/40 bg-rose-400/10' : 'border-white/10 bg-surface-container/25 hover:border-white/20 hover:bg-surface-container/50'}`}
-            >
-              <Heart className={`h-5 w-5 shrink-0 transition ${meToo ? 'fill-rose-400 text-rose-400' : 'text-tertiary'}`} />
-              <span>
-                <span className="block text-sm font-semibold text-on-surface">I experience this problem too</span>
-                <span className="mt-1 block text-xs text-tertiary">Optional. Add your own “Me Too” signal to the problem.</span>
-              </span>
-              {meToo && <Check className="ml-auto h-4 w-4 text-rose-400" />}
-            </button>
           </section>
 
-          <section className="space-y-4 py-6" aria-labelledby="funding-section-title">
-            <div>
-              <h2 id="funding-section-title" className="text-base font-semibold text-on-surface">Would you consider contributing?</h2>
-              <p className="mt-1 text-xs text-tertiary">Optional interest only. No payment or pledge is collected.</p>
-            </div>
+          </>}
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-surface-container/25 p-4 transition hover:border-white/20 hover:bg-surface-container/50">
-              <input
-                type="checkbox"
-                checked={fundingInterest}
-                onChange={(event) => setFundingInterest(event.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-primary"
-              />
-              <span>
-                <span className="block text-sm font-medium text-on-surface">I might contribute if a solution gets built</span>
-                <span className="mt-1 block text-xs text-tertiary">This is not a payment, pledge, or guarantee.</span>
-              </span>
-            </label>
+          {step === 3 && <div className="composer-review-callout"><CheckCircle2 size={20}/><div><strong>{submitted ? `Posted by ${authorName}` : 'Your problem is ready to review.'}</strong><p>{submitted ? 'Your name appears on the post. Your email is never displayed.' : 'When you submit it, the problem appears in Explore under your Google name.'}</p></div></div>}
 
-            {fundingInterest && (
-              <div className="max-w-xs space-y-2">
-                <label htmlFor="funding-amount" className="block text-sm font-medium text-on-surface">Amount you might consider <span className="font-normal text-tertiary">Optional</span></label>
-                <div className="flex items-center rounded-lg border border-white/10 bg-surface-container/40 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
-                  <span className="pl-4 text-sm text-tertiary">$</span>
-                  <input
-                    id="funding-amount"
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputMode="decimal"
-                    value={fundingAmount}
-                    onChange={(event) => setFundingAmount(event.target.value)}
-                    placeholder="25"
-                    className="w-full bg-transparent px-2 py-3 text-sm text-on-surface outline-none placeholder:text-tertiary/45"
-                  />
-                </div>
-                <p className="text-xs leading-relaxed text-tertiary/70">Shown only as non-binding interest. It will not be charged or sent; saving a draft keeps it in this browser.</p>
-              </div>
-            )}
-          </section>
-
-          <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-4 py-3 text-sm font-medium text-on-surface transition hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <Save className="h-4 w-4" />
-              Save draft
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-container px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              Review problem <ArrowRight className="h-4 w-4" />
-            </button>
+          <div className="composer-form-actions">
+            {step > 0 && step < 3 && <button type="button" onClick={goBack} className="composer-back"><ChevronLeft size={16}/> Back</button>}
+            {step === 3 && <button type="button" onClick={() => { setStep(0); setShowPreview(false); setSubmitted(false); setNotice(''); }} className="composer-save">Edit details</button>}
+            {step < 3 ? <button type="submit" className="composer-next">{step === 2 ? 'Review my problem' : 'Next step'} <ChevronRight size={17}/></button> : <button type="button" onClick={handleSubmitProblem} disabled={submitted || submitting} className="composer-next">{submitted ? 'Problem posted' : submitting ? 'Posting…' : currentUser ? 'Submit problem' : 'Sign in & submit'} {!submitted && <CheckCircle2 size={16}/>}</button>}
           </div>
         </form>
+
+        <aside className="composer-guide">
+          <div className={`composer-guide-note composer-guide-tone-${Math.min(step, 2)}`}>
+            <span className="composer-note-tape"/><span className="composer-guide-label"><Lightbulb size={14}/> A LITTLE NUDGE</span>
+            <h2>{step < 3 ? COMPOSER_STEPS[step].title : 'One last look'}</h2>
+            <p>{step < 3 ? COMPOSER_STEPS[step].hint : 'If it sounds like a real moment from your day, you’ve got it.'}</p>
+            {step === 0 && <div className="composer-example"><span>TRY THIS SHAPE</span><strong>When ___ happens, I have to ___, which makes ___ harder.</strong></div>}
+            {step === 1 && <div className="composer-example"><span>KEEP IT HUMAN</span><strong>Who runs into this too? What do you do instead?</strong></div>}
+            {step === 2 && <div className="composer-example"><span>READY TO SHARE</span><strong>Your post will be public under your display name. Your email stays private.</strong></div>}
+          </div>
+          <p className="composer-guide-foot">Published problems are public. Your display name appears with the post; your email stays private.</p>
+        </aside>
+        </div>
 
         {notice && (
           <div role="status" className="mt-5 flex items-start gap-3 rounded-lg border border-white/10 bg-surface-container/30 p-4 text-sm text-tertiary">
@@ -309,22 +329,21 @@ export default function ProblemComposer() {
         )}
 
         {showPreview && (
-          <section aria-labelledby="preview-title" className="mt-8 rounded-xl border border-white/10 bg-surface-container/25 p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-4">
+          <section aria-labelledby="preview-title" className="composer-review-preview">
+            <div className="composer-preview-head">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Preview only</p>
-                <h2 id="preview-title" className="mt-2 text-xl font-bold text-on-surface">{title}</h2>
+                <span>{submitted ? `POSTED BY ${authorName.toUpperCase()}` : 'POST PREVIEW'}</span>
+                <h2 id="preview-title">{title}</h2>
               </div>
-              <button type="button" onClick={() => setShowPreview(false)} className="text-xs text-tertiary transition hover:text-on-surface">Edit</button>
+              <button type="button" onClick={() => { setStep(0); setShowPreview(false); setSubmitted(false); setNotice(''); }} className="text-xs text-tertiary transition hover:text-on-surface">Edit</button>
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-tertiary">{description}</p>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs">
-              {category && <span className="rounded-md bg-surface-container-high px-2.5 py-1 text-on-surface">{category}</span>}
-              {frequency && <span className="rounded-md bg-surface-container-high px-2.5 py-1 text-on-surface">{frequency}</span>}
-              <span className="rounded-md bg-primary/10 px-2.5 py-1 text-primary">{priority} priority</span>
-              {meToo && <span className="rounded-md bg-rose-400/10 px-2.5 py-1 text-rose-300">Me Too</span>}
-              {fundingInterest && fundingAmount && <span className="rounded-md bg-secondary/10 px-2.5 py-1 text-secondary">Might contribute ${fundingAmount}</span>}
+            <p>{description}</p>
+            <div className="composer-preview-tags">
+              {category && <span>{category}</span>}
+              {frequency && <span>{frequency}</span>}
+              <span>{priority} priority</span>
             </div>
+            {submitted && <Link href={submittedProblemId ? `/problems/${submittedProblemId}` : '/explore'} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80">View your problem <ArrowRight size={15}/></Link>}
           </section>
         )}
       </main>

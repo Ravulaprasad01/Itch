@@ -1,97 +1,68 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import ProblemCard from './ProblemCard';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowDownUp, ArrowRight, Search, X } from 'lucide-react';
+import ProblemCard from './ProblemCard';
 import { CATEGORIES } from '@/lib/mock-data';
 
 export default function ProblemList({ initialProblems = [] }) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
+  const [sort, setSort] = useState('recent');
+
+  const categoryCounts = useMemo(() => initialProblems.reduce((counts, problem) => {
+    const name = problem.category?.name || 'General';
+    counts[name] = (counts[name] || 0) + 1;
+    return counts;
+  }, {}), [initialProblems]);
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase();
-
-    return initialProblems.filter((problem) => {
+    const results = initialProblems.filter((problem) => {
       const matchesCategory = category === 'All' || problem.category?.name === category;
-      const searchableFields = [
-        problem.title,
-        problem.description,
-        problem.painPoint,
-        problem.currentWorkaround,
-        problem.targetAudience,
-        problem.category?.name,
-      ];
-      const matchesQuery = !search || searchableFields.some((field) => String(field || '').toLowerCase().includes(search));
-
-      return matchesCategory && matchesQuery;
+      const searchableFields = [problem.title, problem.description, problem.painPoint, problem.currentWorkaround, problem.targetAudience, problem.category?.name];
+      return matchesCategory && (!search || searchableFields.some(field => String(field || '').toLowerCase().includes(search)));
     });
-  }, [initialProblems, query, category]);
+    return results.sort((a, b) => {
+      if (sort === 'me-too') return (b.meTooCount || 0) - (a.meTooCount || 0);
+      if (sort === 'want') return (b.wantThisCount || 0) - (a.wantThisCount || 0);
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+  }, [initialProblems, query, category, sort]);
 
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-center">
-        <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search problems</span>
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-tertiary/50" />
-          <input
-            type="search"
-            placeholder="Search issues, workarounds, or people affected"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-surface-container/40 py-3 pl-10 pr-10 text-sm text-on-surface outline-none transition placeholder:text-tertiary/45 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
-          />
-          {query && (
-            <button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-tertiary transition hover:text-on-surface">
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </label>
-
-        <label className="relative flex shrink-0 items-center">
-          <SlidersHorizontal className="pointer-events-none absolute left-3 h-4 w-4 text-tertiary/55" />
-          <span className="sr-only">Filter by category</span>
-          <select
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            className="w-full appearance-none rounded-lg border border-white/10 bg-surface-container/40 py-3 pl-9 pr-9 text-sm text-on-surface outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/15 sm:w-56"
-          >
-            <option value="All">All categories</option>
-            {CATEGORIES.map(({ name }) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-tertiary/55" />
-        </label>
-      </div>
-
-      <p aria-live="polite" className="text-xs text-tertiary/65">
-        {filtered.length} {filtered.length === 1 ? 'problem' : 'problems'}
-      </p>
-
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-white/15 px-6 py-16 text-center">
-          <h2 className="text-lg font-semibold text-on-surface">No problems found</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-tertiary">
-            Try another keyword or category, or share a problem that is missing.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-3">
-            <button type="button" onClick={() => { setQuery(''); setCategory('All'); }} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-on-surface transition hover:bg-white/5">
-              Clear filters
-            </button>
-            <Link href="/problems/new" className="rounded-lg bg-primary-container px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary">
-              Post a problem
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {filtered.map((p, i) => (
-            <div key={p.id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i * 0.04, 0.24)}s` }}>
-              <ProblemCard problem={p} />
-            </div>
-          ))}
-        </div>
-      )}
+  return <div className="explore-browser">
+    <div className="explore-tools">
+      <label className="explore-search">
+        <Search size={17} aria-hidden="true" />
+        <span className="sr-only">Search problems</span>
+        <input type="search" placeholder="Search a frustration, workaround, or group…" value={query} onChange={event => setQuery(event.target.value)} />
+        {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X size={15} /></button>}
+      </label>
+      <label className="explore-sort">
+        <ArrowDownUp size={15} aria-hidden="true" />
+        <span className="sr-only">Sort problems</span>
+        <select value={sort} onChange={event => setSort(event.target.value)}>
+          <option value="recent">Recently added</option><option value="me-too">Most relatable</option><option value="want">Most wanted</option>
+        </select>
+      </label>
     </div>
-  );
+
+    <div className="explore-topics" role="group" aria-label="Filter by topic">
+      <button type="button" aria-pressed={category === 'All'} onClick={() => setCategory('All')}>Everything <span>{initialProblems.length}</span></button>
+      {CATEGORIES.map(topic => <button key={topic.id} type="button" aria-pressed={category === topic.name} onClick={() => setCategory(topic.name)}>{topic.name}<span>{categoryCounts[topic.name] || 0}</span></button>)}
+    </div>
+
+    <div className="explore-results-heading">
+      <p aria-live="polite"><strong>{filtered.length}</strong> {filtered.length === 1 ? 'problem' : 'problems'} {category !== 'All' ? `in ${category}` : 'to look through'}</p>
+      <Link href="/community">Find your people <ArrowRight size={15} /></Link>
+    </div>
+
+    {filtered.length ? <div className="explore-problem-list">
+      {filtered.map((problem, index) => <div key={problem.id} className="explore-card-enter" style={{ '--card-delay': `${Math.min(index * 55, 275)}ms` }}><ProblemCard problem={problem} /></div>)}
+    </div> : <div className="explore-empty">
+      <span className="explore-empty-mark">?</span><h2>{initialProblems.length === 0 ? 'No problems have been posted yet.' : 'Nothing here by that name.'}</h2><p>{initialProblems.length === 0 ? 'Be the first to share a problem with the community.' : 'Try a broader search or choose another topic.'}</p>
+      {initialProblems.length === 0 ? <Link href="/problems/new">Post the first problem <ArrowRight size={15}/></Link> : <button type="button" onClick={() => { setQuery(''); setCategory('All'); }}>Clear filters</button>}
+    </div>}
+  </div>;
 }

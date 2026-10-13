@@ -38,7 +38,7 @@ export default function Sidebar() {
         <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-primary-container/[0.06] rounded-full blur-2xl pointer-events-none" />
         <div className="flex items-center gap-2 mb-2.5">
           <span className="material-symbols-outlined text-primary text-[1.4rem]">bolt</span>
-          <h3 className="text-sm font-bold text-on-surface">Got an itch?</h3>
+          <h3 className="text-sm font-bold text-on-surface">Got a problem?</h3>
         </div>
         <p className="text-[0.8rem] text-tertiary/75 mb-5 leading-relaxed">
           Articulate what hurts, gather community conviction, and let hungry developers ship a solution.

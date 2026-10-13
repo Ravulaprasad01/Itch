@@ -2,14 +2,40 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, PencilLine, X } from 'lucide-react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db, getPublicDisplayName } from '@/lib/firebase';
+import VoltageLink from '@/components/itch/VoltageLink';
 
 export default function ItchHeader() {
   const [scrolled,    setScrolled]    = useState(false);
   const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [accountName, setAccountName] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [signOutPending, setSignOutPending] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
   const pathname = usePathname();
+  const router = useRouter();
   const onNewProblemPage = pathname === '/problems/new';
+
+  const handleSignOut = async () => {
+    if (signOutPending) return;
+    setSignOutPending(true);
+    setSignOutError('');
+    try {
+      const signOutTask = auth ? signOut(auth) : Promise.resolve();
+      router.replace('/thanks');
+      await signOutTask;
+    } catch (error) {
+      console.error('Unable to sign out:', error);
+      router.replace(pathname || '/');
+      setSignOutError('Could not sign out. Please try again.');
+      setSignOutPending(false);
+    }
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -17,9 +43,29 @@ export default function ItchHeader() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    if (!auth) return undefined;
+    let nameRequest = 0;
+    return onAuthStateChanged(auth, async user => {
+      const requestId = ++nameRequest;
+      setIsAuthenticated(Boolean(user));
+      setAccountName('');
+      if (!user) return;
+      try {
+        const profile = db ? await getDoc(doc(db, 'users', user.uid)) : null;
+        if (requestId !== nameRequest || auth.currentUser?.uid !== user.uid) return;
+        setAccountName(profile?.exists() ? profile.data().displayName : getPublicDisplayName(user));
+      } catch {
+        if (requestId === nameRequest && auth.currentUser?.uid === user.uid) {
+          setAccountName(getPublicDisplayName(user));
+        }
+      }
+    });
+  }, []);
+
   const navLinks = [
-    { href: '/explore',       label: 'Explore Problems' },
-    { href: '/discover',      label: 'Developer Feed'   },
+    { href: '/explore', label: 'Explore Problems' },
+    ...(isAuthenticated ? [{ href: '/community', label: 'Community' }] : []),
   ];
 
   return (
@@ -39,10 +85,10 @@ export default function ItchHeader() {
 
         {/* ── Brand ─────────────────────────────────────── */}
         <div className="flex items-center gap-6">
-          <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-            <img src="/itch-icon.svg" alt="" className="h-9 w-9 rounded-xl transition-transform duration-200 group-hover:-translate-y-0.5" />
+          <Link href={isAuthenticated ? '/explore' : '/'} className="group flex shrink-0 items-center gap-2.5">
+            <Image src="/itch-mark.svg" alt="" width={36} height={36} className="h-9 w-9 rounded-xl transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-[-4deg]" />
             <span className="flex flex-col">
-              <span className="text-xl font-black leading-none text-white">Itch</span>
+              <span className="text-xl font-black leading-none text-white">Itch.</span>
               <span className="mt-1 hidden text-[8px] uppercase text-white/50 sm:block">Post it. Back it. Build it.</span>
             </span>
           </Link>
@@ -52,17 +98,9 @@ export default function ItchHeader() {
             {navLinks.map(link => {
               const active = pathname === link.href || pathname?.startsWith(link.href + '/');
               return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`nav-item px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                    active
-                      ? 'bg-surface-container-high text-on-surface'
-                      : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/70'
-                  }`}
-                >
+                <VoltageLink key={link.href} href={link.href} className={`nav-voltage-link${active ? ' is-active' : ''}`}>
                   {link.label}
-                </Link>
+                </VoltageLink>
               );
             })}
           </nav>
@@ -70,21 +108,17 @@ export default function ItchHeader() {
 
         {/* ── Right actions ──────────────────────────────── */}
         <div className="flex items-center gap-2">
-          {!onNewProblemPage && (
-            <Link
-              href="/problems/new"
-              className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all duration-200 active:scale-95"
-              style={{
-                background: 'linear-gradient(135deg, #f97316, #ea580c)',
-                boxShadow: '0 2px 16px rgba(249,115,22,0.38)',
-              }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 22px rgba(249,115,22,0.55)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 2px 16px rgba(249,115,22,0.38)'}
-            >
+          {isAuthenticated && !onNewProblemPage && (
+            <VoltageLink href="/problems/new" className="header-voltage-link">
               <PencilLine className="h-4 w-4" />
               <span className="hidden sm:inline">Post Problem</span>
-            </Link>
+            </VoltageLink>
           )}
+          {isAuthenticated ? <>
+            <span className="hidden max-w-36 truncate text-xs font-semibold text-on-surface-variant sm:inline" title={accountName}>{accountName}</span>
+            <button type="button" onClick={handleSignOut} disabled={signOutPending} className="rounded-lg px-2.5 py-2 text-xs font-semibold text-on-surface-variant transition hover:bg-white/5 hover:text-on-surface disabled:cursor-wait disabled:opacity-60">{signOutPending ? 'Signing out…' : 'Sign out'}</button>
+          </> : <Link href="/auth" className="rounded-lg px-2.5 py-2 text-xs font-semibold text-on-surface-variant transition hover:bg-white/5 hover:text-on-surface">Sign in/up</Link>}
+          {signOutError && <span role="alert" className="text-[10px] text-red-300">{signOutError}</span>}
 
           {/* Mobile hamburger */}
           <button
@@ -106,30 +140,23 @@ export default function ItchHeader() {
           style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(6,8,15,0.98)' }}
         >
           {navLinks.map(link => (
-            <Link
+            <VoltageLink
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className={`px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-200 ${
-                pathname === link.href
-                  ? 'bg-surface-container-high text-on-surface'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/60'
-              }`}
+              className={`mobile-voltage-link nav-voltage-link${pathname === link.href ? ' is-active' : ''}`}
             >
               {link.label}
-            </Link>
+            </VoltageLink>
           ))}
-          {!onNewProblemPage && (
-            <Link
-              href="/problems/new"
-              onClick={() => setMobileOpen(false)}
-              className="mt-1 inline-flex items-center justify-center gap-2 text-white text-sm font-bold py-2.5 rounded-xl"
-              style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
-            >
+          {accountName && !onNewProblemPage && (
+            <VoltageLink href="/problems/new" onClick={() => setMobileOpen(false)} className="mobile-voltage-link">
               <PencilLine className="h-4 w-4" />
               Post a Problem
-            </Link>
+            </VoltageLink>
           )}
+          {isAuthenticated ? <div className="flex items-center justify-between px-3.5 py-2.5 text-sm"><span className="truncate font-semibold text-on-surface">{accountName}</span><button type="button" onClick={handleSignOut} disabled={signOutPending} className="text-xs text-tertiary hover:text-on-surface disabled:opacity-60">{signOutPending ? 'Signing out…' : 'Sign out'}</button></div> : <VoltageLink href="/auth" onClick={() => setMobileOpen(false)} className="mobile-voltage-link"><span>Sign in/up</span></VoltageLink>}
+          {signOutError && <p role="alert" className="px-3.5 text-xs text-red-300">{signOutError}</p>}
         </div>
       )}
     </header>

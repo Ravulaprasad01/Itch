@@ -1,5 +1,5 @@
-import AuthForm from '@/components/auth/AuthForm';
+import GoogleSignInPanel from '@/components/auth/GoogleSignInPanel';
 
 export default function SignupPage() {
-  return <AuthForm initialMode="signup" />;
+  return <GoogleSignInPanel />;
 }
