@@ -1,4 +1,4 @@
-# Itch
+# Itch.
 
 Itch is a community app for sharing everyday problems, finding people with similar experiences, and discussing useful ways forward. Members sign in with Google, publish a problem under a unique public display name, and reply to community conversations. Problem posts and replies are stored in Cloud Firestore and appear live in the app.
 
