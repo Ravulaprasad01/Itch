@@ -5323,33 +5323,49 @@ main#main-content:has(> section.max-w-md) > section p,main#main-content:has(> se
 .terms-document-page .editorial-bottom { width:min(100%,820px); margin:10px auto 0; }
 
 @media (max-width:760px) {
-  .community-code-page,.terms-document-page { width:calc(100% - 32px); padding-top:calc(66px + 20px); }
-  .community-code-lead { grid-template-columns:1fr; gap:25px; padding:44px 0 30px; }
-  .community-code-lead h1 { max-width:640px; font-size:clamp(2.65rem,10vw,4.2rem); }
-  .community-code-intro { margin-top:17px; font-size:16px; }
-  .community-code-mantra { width:100%; padding:18px 20px; font-size:19px; }
-  .community-principles { grid-template-columns:1fr; gap:10px; padding:12px 0 34px; }
-  .community-principle { padding:22px 20px 23px; }
-  .community-principle-label { margin-bottom:16px; }
-  .community-principle h2 { font-size:24px; }
-  .community-principle p,.community-principle li,.community-safety-note p,.community-safety-note li { font-size:16px; }
-  .community-safety-notes { grid-template-columns:1fr; gap:30px; padding-top:26px; }
-  .community-privacy-note { grid-template-columns:22px minmax(0,1fr); align-items:start; }
-  .community-privacy-note a { grid-column:2; width:fit-content; }
-  .terms-document-content { padding:44px 0 30px; }
-  .terms-document-heading h1 { font-size:clamp(2.6rem,10vw,4rem); }
-  .terms-document-heading>p:last-child { margin-top:17px; font-size:16px; }
-  .terms-quick-summary { margin:28px 0 34px; padding:19px 20px; }
-  .terms-clause { grid-template-columns:1fr; gap:8px; }
-  .terms-clause h2 { font-size:20px; }
-  .terms-clause p { font-size:16px; }
-  .terms-clauses { gap:28px; }
-  .terms-privacy-note { margin-top:34px; }
+  .community-code-page,.terms-document-page { width:calc(100% - 36px); padding-top:calc(66px + 14px); padding-bottom:48px; }
+  .editorial-topline { min-height:44px; align-items:center; gap:8px; font-size:12px; line-height:1.35; }
+  .editorial-topline>span { max-width:56%; text-align:right; }
+  .community-code-lead { grid-template-columns:1fr; gap:17px; padding:32px 0 24px; }
+  .community-code-lead h1 { max-width:640px; font-size:clamp(2rem,9vw,3.6rem); line-height:1; }
+  .community-code-intro { margin-top:15px; font-size:16px; line-height:1.65; }
+  .community-code-mantra { width:100%; padding:16px 18px; font-size:18px; line-height:1.38; }
+  .community-principles { grid-template-columns:1fr; gap:8px; padding:10px 0 30px; }
+  .community-principle { padding:19px 18px 20px; }
+  .community-principle-label { margin-bottom:12px; font-size:14px; }
+  .community-principle h2 { font-size:22px; }
+  .community-principle p,.community-principle li,.community-safety-note p,.community-safety-note li { font-size:16px; line-height:1.65; }
+  .community-principle ul,.community-safety-note ul { gap:7px; margin-top:13px; }
+  .community-safety-notes { grid-template-columns:1fr; gap:24px; padding-top:22px; }
+  .community-safety-note h2 { font-size:21px; }
+  .community-privacy-note { grid-template-columns:20px minmax(0,1fr); align-items:start; gap:8px 10px; margin-top:28px; padding:15px; }
+  .community-privacy-note p { font-size:14px; line-height:1.6; }
+  .community-privacy-note a { grid-column:2; width:fit-content; min-height:44px; }
+  .terms-document-content { padding:34px 0 24px; }
+  .terms-document-heading h1 { font-size:clamp(2rem,9vw,3.5rem); line-height:1; }
+  .terms-document-heading>p:last-child { margin-top:15px; font-size:16px; line-height:1.65; }
+  .terms-quick-summary { margin:24px 0 30px; padding:17px 18px; }
+  .terms-quick-summary p { font-size:16px; line-height:1.6; }
+  .terms-clause { grid-template-columns:1fr; gap:7px; }
+  .terms-clause h2 { font-size:19px; }
+  .terms-clause p { font-size:16px; line-height:1.65; }
+  .terms-clauses { gap:24px; }
+  .terms-privacy-note { margin-top:28px; }
+  .terms-privacy-note p { font-size:14px; }
+  .editorial-bottom { align-items:flex-start; flex-direction:column; gap:10px; margin-top:30px; line-height:1.5; }
+  .editorial-bottom a { min-height:44px; }
 }
 
 @media (max-width:420px) {
-  .community-code-page,.terms-document-page { width:calc(100% - 28px); }
-  .community-code-lead h1,.terms-document-heading h1 { letter-spacing:-.06em; }
-  .community-principle { padding-inline:17px; }
-  .terms-quick-summary { padding-inline:17px; }
+  .community-code-page,.terms-document-page { width:calc(100% - 32px); }
+  .editorial-topline { font-size:11px; }
+  .community-code-lead h1,.terms-document-heading h1 { letter-spacing:-.055em; }
+  .community-principle { padding-inline:16px; }
+  .terms-quick-summary { padding-inline:16px; }
+}
+
+@media (max-width:360px) {
+  .editorial-topline>span { max-width:53%; }
+  .community-code-intro,.terms-document-heading>p:last-child { font-size:15px; }
+  .community-privacy-note { padding:13px; }
 }
