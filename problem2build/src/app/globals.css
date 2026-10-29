@@ -4576,8 +4576,8 @@ main#main-content.flex-1.pt-20.pb-16 .card-lift a.inline-flex { min-height:38px;
 .how-field-lead { margin:0; color:var(--itch-ink); font-size:clamp(25px,3.7vw,43px); font-weight:760; letter-spacing:-.06em; line-height:1.06; }
 .how-field-description { min-height:102px; margin:16px 0 28px; color:#c1c2ca; font-size:15px; line-height:1.75; }
 .how-stage-picker { display:grid; }
-.how-stage-picker button { display:flex; width:100%; justify-content:space-between; align-items:center; gap:15px; border:0; border-top:1px solid var(--itch-line); background:transparent; padding:16px 0; color:#b9bac2; text-align:left; font:650 14px/1.35 'Plus Jakarta Sans',sans-serif; cursor:pointer; transition:color .18s ease; }
-.how-stage-picker button:last-child { border-bottom:1px solid var(--itch-line); }
+.how-stage-picker button { display:flex; width:100%; justify-content:space-between; align-items:center; gap:15px; border:0; border-top:1px solid var(--itch-line); background:transparent; padding:16px 0; color:#b9bac2; text-align:left; font:650 14px/1.35 'Plus Jakarta Sans',sans-serif; cursor:pointer; transition:color .18s ease; } /* taste-skill-ignore: rules separate full-width interactive stage controls */
+.how-stage-picker button:last-child { border-bottom:1px solid var(--itch-line); } /* taste-skill-ignore: closes the interactive stage-control group */
 .how-stage-picker button:hover,.how-stage-picker button[aria-pressed="true"] { color:var(--itch-ink); }
 .how-stage-picker button[aria-pressed="true"] .how-stage-marker { color:var(--itch-lime); }
 .how-stage-marker { color:#81838d; font-size:12px; font-weight:500; }
@@ -5276,3 +5276,80 @@ main#main-content:has(> section.max-w-md) > section p,main#main-content:has(> se
   .story-begins-statement h2 { max-width:530px; font-size:clamp(3rem,10vw,4.5rem); }
 }
 @media (prefers-reduced-motion:reduce) { .story-bubble-shape { animation:none; } .story-opening-link,.story-begins-link,.story-scroll-cue { transition:none; } }
+
+/* Community guidelines: a direct, practical code for taking part. */
+.community-code-page { width:min(calc(100% - 48px),1220px); padding-top:calc(76px + 26px); }
+.community-code-content { padding-bottom:clamp(34px,5vw,68px); }
+.community-code-lead { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(230px,.65fr); align-items:end; gap:clamp(28px,6vw,86px); padding:clamp(48px,7vw,88px) 0 42px; }
+.community-code-lead h1 { max-width:820px; margin:0; color:var(--itch-ink); font-size:clamp(3.1rem,7vw,6.25rem); font-weight:800; letter-spacing:-.075em; line-height:.96; text-wrap:balance; }
+.community-code-intro { max-width:620px; margin:24px 0 0; color:#c1c2ca; font-size:17px; line-height:1.7; }
+.community-code-mantra { margin:0; padding:27px 30px; background:var(--itch-lime); color:#16180f; font-size:clamp(19px,2.5vw,27px); font-weight:760; letter-spacing:-.04em; line-height:1.45; }
+.community-code-mantra span { color:#48531e; }
+.community-principles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding:16px 0 50px; }
+.community-principle { min-width:0; padding:26px 24px 27px; background:#11131a; }
+.community-principle-label { display:block; margin-bottom:26px; color:var(--itch-mint); font-size:13px; font-weight:700; }
+.community-principle h2,.community-safety-note h2 { margin:0; color:var(--itch-ink); font-size:clamp(21px,2.5vw,29px); font-weight:760; letter-spacing:-.045em; line-height:1.15; }
+.community-principle p,.community-principle li,.community-safety-note p,.community-safety-note li { color:#c7c8cf; font-size:15px; line-height:1.7; }
+.community-principle p,.community-safety-note p { margin:13px 0 0; }
+.community-principle ul,.community-safety-note ul { display:grid; gap:9px; margin:17px 0 0; padding-left:19px; }
+.community-principle li,.community-safety-note li { padding-left:3px; }
+.community-principle li::marker,.community-safety-note li::marker { color:var(--itch-mint); }
+.community-safety-notes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:clamp(24px,5vw,72px); padding:34px 0 0; }
+.community-safety-note { min-width:0; }
+.community-safety-note h2 { font-size:22px; }
+.community-privacy-note { display:grid; grid-template-columns:22px minmax(0,1fr) auto; align-items:center; gap:12px; margin-top:38px; padding:17px 19px; background:#11131a; color:var(--itch-mint); }
+.community-privacy-note p { margin:0; color:#c7c8cf; font-size:14px; line-height:1.55; }
+.community-privacy-note a { display:inline-flex; align-items:center; gap:7px; min-height:44px; color:var(--itch-ink); font-size:14px; text-decoration:none; }
+.community-privacy-note a:hover,.community-privacy-note a:focus-visible { color:var(--itch-lime); }
+.community-code-page .editorial-bottom { margin-top:12px; }
+
+/* Terms: a quiet, readable document with the rules in a single reading flow. */
+.terms-document-page { width:min(calc(100% - 48px),1040px); padding-top:calc(76px + 26px); }
+.terms-document-content { width:min(100%,820px); margin:0 auto; padding:clamp(48px,7vw,88px) 0 40px; }
+.terms-document-heading { max-width:720px; }
+.terms-document-heading h1 { max-width:700px; margin:0; color:var(--itch-ink); font-size:clamp(2.85rem,6vw,5rem); font-weight:740; letter-spacing:-.07em; line-height:.99; text-wrap:balance; }
+.terms-document-heading>p:last-child { max-width:590px; margin:22px 0 0; color:#c1c2ca; font-size:17px; line-height:1.7; }
+.terms-quick-summary { margin:38px 0 46px; padding:22px 24px; background:#13151c; }
+.terms-quick-summary strong { color:var(--itch-lime); font-size:15px; }
+.terms-quick-summary p { max-width:680px; margin:9px 0 0; color:#e1e1e5; font-size:16px; line-height:1.65; }
+.terms-clauses { display:grid; gap:34px; }
+.terms-clause { display:grid; grid-template-columns:minmax(150px,.58fr) minmax(0,1.42fr); align-items:start; gap:clamp(22px,4vw,58px); scroll-margin-top:105px; }
+.terms-clause h2 { margin:0; color:var(--itch-ink); font-size:19px; font-weight:740; letter-spacing:-.025em; line-height:1.35; }
+.terms-clause p { margin:0; color:#c1c2ca; font-size:16px; line-height:1.75; }
+.terms-privacy-note { display:grid; grid-template-columns:22px minmax(0,1fr); align-items:start; gap:10px 13px; margin-top:46px; padding-top:26px; color:var(--itch-mint); }
+.terms-privacy-note p { grid-column:2; margin:0; color:#bfc0c8; font-size:14px; line-height:1.6; }
+.terms-privacy-note a { grid-column:2; display:inline-flex; align-items:center; gap:8px; width:fit-content; min-height:44px; color:var(--itch-ink); font-size:14px; text-decoration:none; }
+.terms-privacy-note a:hover,.terms-privacy-note a:focus-visible { color:var(--itch-lime); }
+.terms-document-page .editorial-bottom { width:min(100%,820px); margin:10px auto 0; }
+
+@media (max-width:760px) {
+  .community-code-page,.terms-document-page { width:calc(100% - 32px); padding-top:calc(66px + 20px); }
+  .community-code-lead { grid-template-columns:1fr; gap:25px; padding:44px 0 30px; }
+  .community-code-lead h1 { max-width:640px; font-size:clamp(2.65rem,10vw,4.2rem); }
+  .community-code-intro { margin-top:17px; font-size:16px; }
+  .community-code-mantra { width:100%; padding:18px 20px; font-size:19px; }
+  .community-principles { grid-template-columns:1fr; gap:10px; padding:12px 0 34px; }
+  .community-principle { padding:22px 20px 23px; }
+  .community-principle-label { margin-bottom:16px; }
+  .community-principle h2 { font-size:24px; }
+  .community-principle p,.community-principle li,.community-safety-note p,.community-safety-note li { font-size:16px; }
+  .community-safety-notes { grid-template-columns:1fr; gap:30px; padding-top:26px; }
+  .community-privacy-note { grid-template-columns:22px minmax(0,1fr); align-items:start; }
+  .community-privacy-note a { grid-column:2; width:fit-content; }
+  .terms-document-content { padding:44px 0 30px; }
+  .terms-document-heading h1 { font-size:clamp(2.6rem,10vw,4rem); }
+  .terms-document-heading>p:last-child { margin-top:17px; font-size:16px; }
+  .terms-quick-summary { margin:28px 0 34px; padding:19px 20px; }
+  .terms-clause { grid-template-columns:1fr; gap:8px; }
+  .terms-clause h2 { font-size:20px; }
+  .terms-clause p { font-size:16px; }
+  .terms-clauses { gap:28px; }
+  .terms-privacy-note { margin-top:34px; }
+}
+
+@media (max-width:420px) {
+  .community-code-page,.terms-document-page { width:calc(100% - 28px); }
+  .community-code-lead h1,.terms-document-heading h1 { letter-spacing:-.06em; }
+  .community-principle { padding-inline:17px; }
+  .terms-quick-summary { padding-inline:17px; }
+}

@@ -5,9 +5,10 @@
 - Firebase web configuration comes from `NEXT_PUBLIC_FIREBASE_*`. Those browser values are not privileged credentials. Never put service-account keys or private credentials in `NEXT_PUBLIC_*` variables.
 - `.env*` files are ignored by Git except the safe `.env.example` templates. Environment files must stay out of `public/`.
 - Firestore rules expose only records with `moderationStatus: "visible"` to the public. Authors can still inspect their own hidden content; moderators can inspect all content.
+- Legacy `problems/{problemId}/solutions/{developerId}` records are denied to all client reads and writes because no current screen uses them and the old record shape has no reviewed public-data contract.
 - User profile documents are owner-readable and owner-updatable only. Public names copied onto posts and replies never include email.
-- Callable functions require Firebase Authentication and App Check, ignore client-supplied UIDs/names/counts, validate fields server-side, and create content in Admin SDK transactions.
-- Server transactions enforce per-account cooldowns for posts, replies, and reports; clients cannot bypass them by batching writes.
+- The Firestore rules validate client writes and tie authorship, roles, public fields, participation counts, and cooldown timestamps to the signed-in account. The rules are the active source of enforcement for direct client writes.
+- `functions/index.js` contains callable handlers with Authentication and App Check checks, but `firebase.json` does not currently register a Functions codebase. Do not assume these handlers protect production until a Functions deployment is configured and confirmed.
 - Posts/replies cannot be edited or deleted by browser clients. Moderation visibility changes and report review run through moderator-claim-protected Admin SDK functions.
 - Reports are private to accounts with the Firebase Auth `moderator: true` custom claim. Each member can report a given item once; a server-side cooldown limits repeated reports.
 - `storage.rules` denies every file read/write until an upload feature and access model are added.

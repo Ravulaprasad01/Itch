@@ -46,7 +46,7 @@ function HowItWorks() {
       <div className="how-field-copy">
         <p className="how-field-lead">It starts with one specific moment.</p>
         <p className="how-field-description" aria-live="polite">{step.text}</p>
-        <div className="how-stage-picker" role="group" aria-label="Choose a step in the Itch community">
+        <div className="how-stage-picker" data-ui role="group" aria-label="Choose a step in the Itch community">
           {howSteps.map((item, index) => (
             <button key={item.title} type="button" aria-pressed={active === index} onClick={() => setActive(index)}>
               <span>{item.title}</span><span className="how-stage-marker" aria-hidden="true">{active === index ? 'Here' : 'View'}</span>
@@ -59,27 +59,63 @@ function HowItWorks() {
   );
 }
 
-function DocumentGuide({ sections, privacyNote }) {
+function CommunityGuidelines({ sections, privacyNote }) {
+  const principles = sections.slice(0, 3);
+  const extraGuidance = sections.slice(3);
   return (
-    <section className="guide-document" aria-label="Page contents">
-      <aside className="guide-index">
-        <p>On this page</p>
-        <nav aria-label="Jump to a section">
-          {sections.map((section, index) => <a href={`#guide-section-${index + 1}`} key={section.title}>{section.title}</a>)}
-        </nav>
-        <div className="guide-privacy-note"><LockKeyhole size={17} /><p>{privacyNote}</p><Link href="/privacy">Read the privacy policy<ArrowRight size={14} /></Link></div>
-      </aside>
-      <div className="guide-sections">
-        {sections.map((section, index) => (
-          <article className="guide-section" id={`guide-section-${index + 1}`} key={section.title}>
-            <div><h2>{section.title}</h2>
-              {section.body && <p>{section.body}</p>}
-              {section.points && <ul>{section.points.map(point => <li key={point}>{point}</li>)}</ul>}
-            </div>
+    <div className="community-code-content">
+      <section className="community-code-lead" aria-labelledby="community-code-title">
+        <div>
+          <h1 id="community-code-title">Share the problem. Respect the person.</h1>
+          <p className="community-code-intro">Itch works best when people can explain what happened, feel heard, and share only what is safe to make public.</p>
+        </div>
+        <p className="community-code-mantra">Be clear.<br />Be kind.<br /><span>Keep it private.</span></p>
+      </section>
+      <section className="community-principles" aria-label="Three ways to keep Itch useful">
+        {principles.map((section, index) => (
+          <article className="community-principle" key={section.title}>
+            <span className="community-principle-label">{['When you post', 'Before you share', 'When you reply'][index]}</span>
+            <h2>{section.title}</h2>
+            <p>{section.body}</p>
+            {section.points?.length > 0 && <ul>{section.points.map(point => <li key={point}>{point}</li>)}</ul>}
           </article>
         ))}
-      </div>
-    </section>
+      </section>
+      <section className="community-safety-notes" aria-label="Other important guidance">
+        {extraGuidance.map(section => (
+          <article className="community-safety-note" key={section.title}>
+            <h2>{section.title}</h2>
+            <p>{section.body}</p>
+            {section.points?.length > 0 && <ul>{section.points.map(point => <li key={point}>{point}</li>)}</ul>}
+          </article>
+        ))}
+      </section>
+      <aside className="community-privacy-note"><LockKeyhole size={18} /><p>{privacyNote}</p><Link href="/privacy">Privacy details<ArrowRight size={14} /></Link></aside>
+    </div>
+  );
+}
+
+function TermsDocument({ sections, privacyNote }) {
+  return (
+    <div className="terms-document-content">
+      <header className="terms-document-heading">
+        <h1>What using Itch means.</h1>
+        <p>These are the basic rules for using the site, sharing a problem, and joining a conversation.</p>
+      </header>
+      <aside className="terms-quick-summary">
+        <strong>The short version</strong>
+        <p>Keep your account safe. Published posts are public. Treat people fairly. A star or contribution is a signal of interest, not a promise of a solution.</p>
+      </aside>
+      <section className="terms-clauses" aria-label="Terms of use">
+        {sections.map(section => (
+          <article className="terms-clause" key={section.title}>
+            <h2>{section.title}</h2>
+            <p>{section.body}</p>
+          </article>
+        ))}
+      </section>
+      <aside className="terms-privacy-note"><LockKeyhole size={18} /><p>{privacyNote}</p><Link href="/privacy">Read the privacy policy<ArrowRight size={14} /></Link></aside>
+    </div>
   );
 }
 
@@ -140,11 +176,14 @@ export default function InfoPage({ eyebrow, title, intro, sections = [], email, 
   const contact = pageType === 'contact';
   return <div className="info-shell">
     <ItchHeader />
-    <main id="main-content" className={`editorial-page ${redesigned ? 'guide-page' : ''} editorial-${pageType}`}>
+    <main id="main-content" className={`editorial-page ${redesigned ? 'guide-page' : ''} editorial-${pageType} ${pageType === 'guidelines' ? 'community-code-page' : ''} ${pageType === 'terms' ? 'terms-document-page' : ''}`}>
       <div className="editorial-topline"><Link href="/" className="editorial-back"><ArrowLeft size={16}/> {redesigned ? 'Back to Itch' : 'BACK TO ITCH'}</Link><span>{redesigned ? <>Itch <i>·</i> {pageType === 'guidelines' ? 'Community guidelines' : pageType === 'terms' ? 'Terms of use' : 'How it works'}</> : <>FIELD NOTES <i>•</i> {eyebrow}</>}</span></div>
-      {redesigned ? <SectionHeading title={title} intro={intro} pageType={pageType} highlight={highlight || { title: 'Your email stays private', body: 'Public posts show your display name. Your email is not shown on the site.' }} /> : <LegacyHeading eyebrow={eyebrow} title={title} intro={intro} />}
-      {how ? <HowItWorks /> : about ? <FounderNote /> : redesigned ? <DocumentGuide sections={sections} privacyNote={privacyNote || 'Your public display name appears with your posts. Your email stays private.'} /> : contact ? <ContactDesk email={email} /> : <LegacyReadingRoom sections={sections} eyebrow={eyebrow} />}
-      <div className="editorial-bottom"><span>{redesigned ? 'Clear moments. Better conversations.' : <><NotebookPen size={15}/> A SMALL NOTE FROM ITCH</>}</span><Link href="/explore">{redesigned ? 'Explore problems' : 'See what people are talking about'} <CornerDownRight size={16}/></Link></div>
+      {pageType === 'guidelines' ? <CommunityGuidelines sections={sections} privacyNote={privacyNote || 'Your public display name appears with posts. Your email stays private.'} />
+        : pageType === 'terms' ? <TermsDocument sections={sections} privacyNote={privacyNote || 'Your email is used for your account and is not shown publicly with your posts.'} />
+          : how ? <SectionHeading title={title} intro={intro} pageType={pageType} highlight={highlight || { title: 'Your email stays private', body: 'Public posts show your display name. Your email is not shown on the site.' }} />
+            : <LegacyHeading eyebrow={eyebrow} title={title} intro={intro} />}
+      {how ? <HowItWorks /> : about ? <FounderNote /> : pageType === 'guidelines' ? null : pageType === 'terms' ? null : contact ? <ContactDesk email={email} /> : <LegacyReadingRoom sections={sections} eyebrow={eyebrow} />}
+      <div className="editorial-bottom"><span>{pageType === 'guidelines' ? 'A thoughtful reply can help someone feel heard.' : pageType === 'terms' ? 'Questions about these terms?' : redesigned ? 'Clear moments. Better conversations.' : <><NotebookPen size={15}/> A SMALL NOTE FROM ITCH</>}</span><Link href={pageType === 'terms' ? '/contact' : pageType === 'guidelines' ? '/community' : '/explore'}>{pageType === 'terms' ? 'Contact Itch' : pageType === 'guidelines' ? 'Visit the community' : redesigned ? 'Explore problems' : 'See what people are talking about'} <CornerDownRight size={16}/></Link></div>
     </main>
     <ItchFooter />
   </div>;

@@ -219,10 +219,9 @@ service cloud.firestore {
       }
 
       match /solutions/{developerId} {
-        // Retained as read-only history from the earlier offer flow. New participation
-        // uses contributors/{uid}; developers no longer submit an approach form.
-        allow read: if true;
-        allow create, update, delete: if false;
+        // Legacy records have no current product reader. Keep them private by default
+        // until a reviewed public data contract exists.
+        allow read, write: if false;
       }
 
       match /replies/{replyId} {
