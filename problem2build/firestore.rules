@@ -1,12 +1,99 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function moderator() {
+      return signedIn() && request.auth.token.get('moderator', false) == true;
+    }
+
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function profilePath(userId) {
+      return /databases/$(database)/documents/users/$(userId);
+    }
+
+    function problemPath(problemId) {
+      return /databases/$(database)/documents/problems/$(problemId);
+    }
+
+    function solutionPath(problemId, developerId) {
+      return /databases/$(database)/documents/problems/$(problemId)/solutions/$(developerId);
+    }
+
+    function contributorPath(problemId, developerId) {
+      return /databases/$(database)/documents/problems/$(problemId)/contributors/$(developerId);
+    }
+
+    function rateLimitPath(userId) {
+      return /databases/$(database)/documents/rateLimits/$(userId);
+    }
+
+    function rateLimitAfter(userId, field) {
+      return getAfter(rateLimitPath(userId)).data.get(field, null) == request.time;
+    }
+
+    function reportTargetStatusAfter(reportData, expectedStatus) {
+      return reportData.targetType == 'problem'
+        ? getAfter(problemPath(reportData.problemId)).data.moderationStatus == expectedStatus
+        : getAfter(/databases/$(database)/documents/problems/$(reportData.problemId)/replies/$(reportData.targetId)).data.moderationStatus == expectedStatus;
+    }
+
+    function validRateLimitWrite(userId) {
+      return owns(userId)
+        && request.resource.data.keys().hasOnly(['lastProblemAt', 'lastReplyAt', 'lastReportAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+        && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastProblemAt'])
+            && request.resource.data.lastProblemAt == request.time
+            && (!resource.data.keys().hasAny(['lastProblemAt'])
+              || request.time > resource.data.lastProblemAt + duration.value(30, 's')))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastReplyAt'])
+            && request.resource.data.lastReplyAt == request.time
+            && (!resource.data.keys().hasAny(['lastReplyAt'])
+              || request.time > resource.data.lastReplyAt + duration.value(5, 's')))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastReportAt'])
+            && request.resource.data.lastReportAt == request.time
+            && (!resource.data.keys().hasAny(['lastReportAt'])
+              || request.time > resource.data.lastReportAt + duration.value(10, 's')))
+        );
+    }
+
+    function validProblem() {
+      let data = request.resource.data;
+      return signedIn()
+        && data.keys().hasOnly(['title', 'description', 'category', 'frequency', 'priority', 'audience', 'workaround', 'fundingInterest', 'fundingAmount', 'fundingCurrency', 'authorId', 'authorName', 'status', 'moderationStatus', 'meTooCount', 'wantThisCount', 'devInterestCount', 'createdAt'])
+        && data.title is string && data.title.size() >= 10 && data.title.size() <= 120
+        && data.description is string && data.description.size() >= 20 && data.description.size() <= 600
+        && data.category in ['Productivity', 'Developer Tools', 'Finance & Tax', 'Health & Fitness', 'Local & Community', 'Creative', 'Audio & Video']
+        && data.frequency in ['Daily', 'Weekly', 'Monthly', 'Rarely']
+        && data.priority in ['Low', 'Medium', 'High']
+        && data.audience is string && data.audience.size() <= 200
+        && data.workaround is string && data.workaround.size() <= 400
+        && data.fundingInterest is bool
+        && ((data.fundingInterest == false && data.fundingAmount == null)
+          || (data.fundingInterest == true && (data.fundingAmount == null || (data.fundingAmount is number && data.fundingAmount >= 1 && data.fundingAmount <= 1000000))))
+        && data.fundingCurrency in ['INR', 'USD', 'GBP', 'EUR']
+        && data.authorId == request.auth.uid
+        && data.authorName == get(profilePath(request.auth.uid)).data.displayName
+        && get(profilePath(request.auth.uid)).data.accountType == 'poster'
+        && data.status == 'open' && data.moderationStatus == 'visible'
+        && data.meTooCount == 0 && data.wantThisCount == 0 && data.devInterestCount == 0
+        && data.createdAt == request.time
+        && rateLimitAfter(request.auth.uid, 'lastProblemAt');
+    }
+
     match /users/{userId} {
-      // Public problem cards only need a display name; never store email here.
-      allow read: if true;
-      allow create: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['displayName', 'nameKey', 'createdAt'])
+      // Profiles contain private account metadata. Public posts carry only authorName.
+      allow get: if owns(userId);
+      allow list: if false;
+      allow create: if owns(userId)
+        && request.resource.data.keys().hasOnly(['displayName', 'nameKey', 'createdAt', 'accountType'])
+        && (!request.resource.data.keys().hasAny(['accountType']) || request.resource.data.accountType in ['poster', 'developer'])
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() >= 2
         && request.resource.data.displayName.size() <= 30
@@ -15,9 +102,9 @@ service cloud.firestore {
         && request.resource.data.nameKey == request.resource.data.displayName.trim().lower().replace('\\s+', ' ')
         && request.resource.data.createdAt == request.time
         && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.nameKey)).data.uid == userId;
-      allow update: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'nameKey'])
+      allow update: if owns(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'nameKey', 'accountType'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['accountType']) || request.resource.data.accountType in ['poster', 'developer'])
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() >= 2
         && request.resource.data.displayName.size() <= 30
@@ -25,62 +112,192 @@ service cloud.firestore {
         && request.resource.data.nameKey == request.resource.data.displayName.trim().lower().replace('\\s+', ' ')
         && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.nameKey)).data.uid == userId;
       allow delete: if false;
+
+      match /solvedProblems/{problemId} {
+        // Only the owner can see their verified completion history. A poster creates
+        // an entry only in the same transaction that resolves their problem and rates
+        // the selected developer's proposal.
+        allow get, list: if owns(userId);
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['problemId', 'problemTitle', 'rating', 'completedAt'])
+          && request.resource.data.problemId == problemId
+          && request.resource.data.problemTitle == get(problemPath(problemId)).data.title
+          && request.resource.data.completedAt == request.time
+          && get(problemPath(problemId)).data.authorId == request.auth.uid
+          && getAfter(problemPath(problemId)).data.status == 'resolved'
+          && getAfter(problemPath(problemId)).data.selectedDeveloperId == userId
+          && getAfter(solutionPath(problemId, userId)).data.status == 'solved'
+          && request.resource.data.rating == getAfter(solutionPath(problemId, userId)).data.rating;
+        allow update, delete: if false;
+      }
     }
 
     match /usernames/{nameKey} {
-      // Signed-in users can check a candidate name; the mapping itself stores no public identity.
-      allow get: if request.auth != null;
+      // Name availability can be checked by signed-in clients; mappings contain no email.
+      allow get: if signedIn();
       allow list: if false;
-      allow create: if request.auth != null
+      allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['uid'])
         && request.resource.data.uid == request.auth.uid
+        && getAfter(profilePath(request.auth.uid)).data.nameKey == nameKey
         && !exists(/databases/$(database)/documents/usernames/$(nameKey));
       allow update: if false;
-      allow delete: if request.auth != null
+      allow delete: if signedIn()
         && resource.data.uid == request.auth.uid
-        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.nameKey != nameKey;
+        && getAfter(profilePath(request.auth.uid)).data.nameKey != nameKey;
     }
 
     match /problems/{problemId} {
-      allow read: if true;
-      allow create: if request.auth != null
-        && request.resource.data.keys().hasOnly([
-          'title', 'description', 'category', 'frequency', 'priority',
-          'audience', 'workaround', 'authorId', 'authorName', 'status',
-          'meTooCount', 'wantThisCount', 'devInterestCount', 'createdAt'
-        ])
-        && request.resource.data.authorId == request.auth.uid
-        && request.resource.data.authorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.title is string
-        && request.resource.data.title.size() >= 10
-        && request.resource.data.title.size() <= 120
-        && request.resource.data.description is string
-        && request.resource.data.description.size() >= 20
-        && request.resource.data.description.size() <= 600
-        && request.resource.data.category is string
-        && request.resource.data.frequency in ['Daily', 'Weekly', 'Monthly', 'Rarely']
-        && request.resource.data.priority in ['Low', 'Medium', 'High']
-        && request.resource.data.status == 'open'
-        && request.resource.data.meTooCount == 0
-        && request.resource.data.wantThisCount == 0
-        && request.resource.data.devInterestCount == 0;
-      allow update, delete: if request.auth != null
-        && resource.data.authorId == request.auth.uid;
+      // Public feeds query visible documents. Authors and moderators can inspect hidden posts.
+      allow read: if moderator()
+        || (signedIn() && resource.data.authorId == request.auth.uid)
+        || resource.data.moderationStatus == 'visible';
+      // The app is kept on Firebase Spark: client writes are tightly validated here.
+      // Aggregate counts can only change alongside that member's private participation doc.
+      allow create: if validProblem();
+      allow update: if signedIn() && (
+        (moderator()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moderationStatus'])
+          && request.resource.data.moderationStatus in ['hidden', 'visible'])
+        ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['meTooCount'])
+          && resource.data.meTooCount is int
+          && request.resource.data.meTooCount == resource.data.meTooCount + 1
+          && !exists(/databases/$(database)/documents/problems/$(problemId)/affectedSignals/$(request.auth.uid))
+          && getAfter(/databases/$(database)/documents/problems/$(problemId)/affectedSignals/$(request.auth.uid)).data.createdAt == request.time)
+        ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributorCount'])
+          && resource.data.status == 'open'
+          && resource.data.authorId != request.auth.uid
+          && request.resource.data.get('contributorCount', 0) is int
+          && request.resource.data.get('contributorCount', 0) == resource.data.get('contributorCount', 0) + 1
+          && !exists(contributorPath(problemId, request.auth.uid))
+          && getAfter(contributorPath(problemId, request.auth.uid)).data.createdAt == request.time)
+        ||
+        (resource.data.authorId == request.auth.uid
+          && resource.data.status == 'open'
+          && request.resource.data.status == 'resolved'
+          && request.resource.data.selectedDeveloperId is string
+          && request.resource.data.resolvedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'selectedDeveloperId', 'resolvedAt'])
+          && getAfter(solutionPath(problemId, request.resource.data.selectedDeveloperId)).data.status == 'solved'
+          && getAfter(solutionPath(problemId, request.resource.data.selectedDeveloperId)).data.rating is int
+          && getAfter(solutionPath(problemId, request.resource.data.selectedDeveloperId)).data.rating >= 1
+          && getAfter(solutionPath(problemId, request.resource.data.selectedDeveloperId)).data.rating <= 5
+          && getAfter(solutionPath(problemId, request.resource.data.selectedDeveloperId)).data.ratedAt == request.time)
+      );
+      allow delete: if false;
+
+      match /affectedSignals/{userId} {
+        // A user can check their own signal; identities are not publicly enumerable.
+        allow get: if owns(userId);
+        allow list: if false;
+        allow create: if owns(userId)
+          && request.resource.data.keys().hasOnly(['createdAt'])
+          && request.resource.data.createdAt == request.time
+          && !exists(/databases/$(database)/documents/problems/$(problemId)/affectedSignals/$(userId))
+          && get(/databases/$(database)/documents/problems/$(problemId)).data.meTooCount is int
+          && getAfter(/databases/$(database)/documents/problems/$(problemId)).data.meTooCount
+            == get(/databases/$(database)/documents/problems/$(problemId)).data.meTooCount + 1;
+        allow update, delete: if false;
+      }
+
+      match /contributors/{userId} {
+        // Public total stays on the problem document; individual participation is private.
+        allow get: if owns(userId);
+        allow list: if false;
+        allow create: if owns(userId)
+          && get(profilePath(userId)).data.accountType == 'developer'
+          && get(problemPath(problemId)).data.status == 'open'
+          && get(problemPath(problemId)).data.authorId != userId
+          && request.resource.data.keys().hasOnly(['createdAt'])
+          && request.resource.data.createdAt == request.time
+          && !exists(contributorPath(problemId, userId))
+          && getAfter(problemPath(problemId)).data.get('contributorCount', 0)
+            == get(problemPath(problemId)).data.get('contributorCount', 0) + 1;
+        allow update, delete: if false;
+      }
+
+      match /solutions/{developerId} {
+        // Retained as read-only history from the earlier offer flow. New participation
+        // uses contributors/{uid}; developers no longer submit an approach form.
+        allow read: if true;
+        allow create, update, delete: if false;
+      }
 
       match /replies/{replyId} {
-        allow read: if true;
-        allow create: if request.auth != null
-          && exists(/databases/$(database)/documents/problems/$(problemId))
-          && request.resource.data.keys().hasOnly(['authorId', 'authorName', 'text', 'createdAt'])
+        allow read: if moderator()
+          || (signedIn() && resource.data.authorId == request.auth.uid)
+          || resource.data.moderationStatus == 'visible';
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['authorId', 'authorName', 'authorRole', 'text', 'moderationStatus', 'createdAt'])
           && request.resource.data.authorId == request.auth.uid
-          && request.resource.data.authorName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName
+          && request.resource.data.authorName == get(profilePath(request.auth.uid)).data.displayName
+          && request.resource.data.authorRole == (get(profilePath(request.auth.uid)).data.accountType == 'developer' ? 'developer' : 'member')
           && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() >= 1
           && request.resource.data.text.size() <= 2000
-          && request.resource.data.createdAt == request.time;
-        allow update, delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+          && request.resource.data.moderationStatus == 'visible'
+          && request.resource.data.createdAt == request.time
+          && get(problemPath(problemId)).data.status == 'open'
+          && get(problemPath(problemId)).data.moderationStatus == 'visible'
+          && rateLimitAfter(request.auth.uid, 'lastReplyAt');
+        allow update: if moderator()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moderationStatus'])
+          && request.resource.data.moderationStatus in ['hidden', 'visible'];
+        allow delete: if false;
       }
     }
+
+    match /reports/{reportId} {
+      // Reporters can only read their own receipt; only moderators can list/review reports.
+      allow get: if moderator() || (signedIn() && resource.data.reporterId == request.auth.uid);
+      allow list: if moderator();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['targetType', 'problemId', 'targetId', 'reason', 'reporterId', 'status', 'createdAt'])
+        && request.resource.data.targetType in ['problem', 'reply']
+        && request.resource.data.problemId is string
+        && request.resource.data.targetId is string
+        && reportId == request.auth.uid + '_' + request.resource.data.targetType + '_' + request.resource.data.problemId + '_' + request.resource.data.targetId
+        && request.resource.data.reason in ['spam', 'harassment', 'private-info', 'misleading', 'other']
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time
+        && get(problemPath(request.resource.data.problemId)).data.moderationStatus == 'visible'
+        && (request.resource.data.targetType == 'problem'
+          ? request.resource.data.targetId == request.resource.data.problemId
+            && get(problemPath(request.resource.data.problemId)).data.moderationStatus == 'visible'
+          : get(/databases/$(database)/documents/problems/$(request.resource.data.problemId)/replies/$(request.resource.data.targetId)).data.moderationStatus == 'visible')
+        && rateLimitAfter(request.auth.uid, 'lastReportAt');
+      allow update: if moderator()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt'])
+        && request.resource.data.reviewedBy == request.auth.uid
+        && request.resource.data.reviewedAt == request.time
+        && (
+          (request.resource.data.status == 'dismissed' && resource.data.status in ['open', 'actioned', 'restored'])
+          || (request.resource.data.status == 'actioned'
+            && resource.data.targetType in ['problem', 'reply']
+            && reportTargetStatusAfter(resource.data, 'hidden'))
+          || (request.resource.data.status == 'restored'
+            && resource.data.targetType in ['problem', 'reply']
+            && reportTargetStatusAfter(resource.data, 'visible'))
+        );
+      allow delete: if false;
+    }
+
+    match /rateLimits/{userId} {
+      allow get: if owns(userId);
+      allow list: if false;
+      allow create: if owns(userId)
+        && request.resource.data.keys().hasOnly(['lastProblemAt', 'lastReplyAt', 'lastReportAt'])
+        && request.resource.data.keys().size() == 1
+        && ((request.resource.data.keys().hasOnly(['lastProblemAt']) && request.resource.data.lastProblemAt == request.time)
+          || (request.resource.data.keys().hasOnly(['lastReplyAt']) && request.resource.data.lastReplyAt == request.time)
+          || (request.resource.data.keys().hasOnly(['lastReportAt']) && request.resource.data.lastReportAt == request.time));
+      allow update: if validRateLimitWrite(userId);
+      allow delete: if false;
+    }
+
+    // Unmatched collections are denied by default.
   }
 }

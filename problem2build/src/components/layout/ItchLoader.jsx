@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 export default function ItchLoader() {
   const [visible, setVisible] = useState(true);
@@ -13,21 +14,14 @@ export default function ItchLoader() {
   if (!visible) return null;
 
   return (
-    <div className="itch-loader-overlay" role="status" aria-live="polite">
-      <span className="sr-only">Loading Itch</span>
-      <div className="itch-loader-scene" aria-hidden="true">
-        <div className="itch-speeder">
-          <span className="itch-speeder-wake">
-            <span /><span /><span /><span />
-          </span>
-          <span className="itch-speeder-top" />
-          <div className="itch-speeder-base">
-            <span />
-            <span className="itch-speeder-face" />
-          </div>
+    <div className="itch-loader-overlay" role="status" aria-live="polite" aria-label="Loading Itch">
+      <div className="itch-loader-content">
+        <div className="itch-loader-orbit" aria-hidden="true">
+          <span className="itch-loader-orbit-line" />
+          <Image src="/itch-mark.svg" alt="" width={54} height={54} priority className="itch-loader-mark" />
         </div>
-        <div className="itch-longfazers"><span /><span /><span /><span /></div>
-        <p>Finding your way</p>
+        <p className="itch-loader-label">Getting Itch ready</p>
+        <p className="itch-loader-flow" aria-hidden="true"><span>Share</span><i /><span>Support</span><i /><span>Build</span></p>
       </div>
     </div>
   );

@@ -19,7 +19,9 @@ export default function RouteTransition({ children }) {
     navigationStartedAt.current = Date.now();
     window.clearTimeout(loaderTimeout.current);
     setIsNavigating(true);
-    loaderTimeout.current = window.setTimeout(() => setIsNavigating(false), 2000);
+    // Keep a short failsafe for navigation events that do not complete, without
+    // leaving the full-page loader over an otherwise usable screen.
+    loaderTimeout.current = window.setTimeout(() => setIsNavigating(false), 800);
   }, []);
 
   useEffect(() => {
@@ -41,11 +43,15 @@ export default function RouteTransition({ children }) {
   }, [startNavigationLoader]);
 
   const handleLinkClick = (event) => {
-    const anchor = event.target.closest('a[href]');
-    if (!anchor || anchor.target || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const anchor = target.closest('a[href]');
+    if (!anchor || anchor.hasAttribute('data-no-route-transition')) return;
+    if (anchor.hasAttribute('download') || (anchor.target && anchor.target.toLowerCase() !== '_self')) return;
 
     const destination = new URL(anchor.href, window.location.href);
-    if (destination.origin === window.location.origin && destination.pathname !== pathname) {
+    if (destination.origin === window.location.origin && destination.pathname !== window.location.pathname) {
       startNavigationLoader();
       setNavigationDirection('forward');
     }
@@ -55,7 +61,7 @@ export default function RouteTransition({ children }) {
     if (pathname && pathname !== activeRoute.pathname) {
       if (!navigationStartedAt.current) startNavigationLoader();
       window.clearTimeout(loaderTimeout.current);
-      const minimumVisibleTime = Math.max(0, 420 - (Date.now() - navigationStartedAt.current));
+      const minimumVisibleTime = Math.max(0, 160 - (Date.now() - navigationStartedAt.current));
       if (minimumVisibleTime) {
         loaderTimeout.current = window.setTimeout(() => setIsNavigating(false), minimumVisibleTime);
       } else {

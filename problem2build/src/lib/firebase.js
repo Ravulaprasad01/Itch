@@ -1,4 +1,5 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, getFirestore, runTransaction, serverTimestamp } from 'firebase/firestore';
 
@@ -13,10 +14,28 @@ const firebaseConfig = {
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId,
 );
+const recaptchaEnterpriseSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY;
 
 const app = typeof window !== 'undefined' && isFirebaseConfigured
   ? (getApps().length ? getApp() : initializeApp(firebaseConfig))
   : null;
+
+// Optional until the matching app and reCAPTCHA Enterprise key are registered in Firebase Console.
+export const appCheck = (() => {
+  if (!app || !recaptchaEnterpriseSiteKey) return null;
+  const appCheckCache = globalThis.__itchAppCheckInstances || (globalThis.__itchAppCheckInstances = {});
+  if (appCheckCache[app.name]) return appCheckCache[app.name];
+  try {
+    appCheckCache[app.name] = initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(recaptchaEnterpriseSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    return appCheckCache[app.name];
+  } catch {
+    return null;
+  }
+})();
+export const isAppCheckConfigured = Boolean(appCheck);
 
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
@@ -46,9 +65,12 @@ export async function isDisplayNameAvailable(displayName, uid) {
   return !snapshot.exists() || snapshot.data().uid === uid;
 }
 
-export async function savePublicDisplayName(user, displayName) {
+export async function savePublicDisplayName(user, displayName, accountType) {
   if (!db || !user?.uid) throw new Error('Firebase is not configured.');
   const name = String(displayName || '').trim().replace(/\s+/g, ' ');
+  if (accountType !== undefined && !['poster', 'developer'].includes(accountType)) {
+    throw new Error('Choose a valid Itch profile type.');
+  }
   if (!/^[\p{L}\p{N}][\p{L}\p{N}._ -]{1,29}$/u.test(name)) {
     throw new Error('Use 2–30 letters, numbers, spaces, dots, underscores, or hyphens.');
   }
@@ -84,10 +106,25 @@ export async function savePublicDisplayName(user, displayName) {
     transaction.set(userRef, {
       displayName: name,
       nameKey: nextNameKey,
+      ...(accountType ? { accountType } : {}),
       ...(previousProfile ? {} : { createdAt: serverTimestamp() }),
     }, { merge: true });
 
     return { displayName: name, nameKey: nextNameKey };
+  });
+}
+
+export async function saveAccountType(user, accountType) {
+  if (!db || !user?.uid) throw new Error('Firebase is not configured.');
+  if (!['poster', 'developer'].includes(accountType)) throw new Error('Choose a valid Itch profile type.');
+  const userRef = doc(db, 'users', user.uid);
+  return runTransaction(db, async transaction => {
+    const profile = await transaction.get(userRef);
+    if (!profile.exists() || typeof profile.data().displayName !== 'string') {
+      throw new Error('Finish setting up your Itch profile first.');
+    }
+    transaction.update(userRef, { accountType });
+    return { accountType };
   });
 }
 

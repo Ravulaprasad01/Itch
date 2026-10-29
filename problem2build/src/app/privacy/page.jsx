@@ -1,6 +1,6 @@
 import InfoPage from '@/components/itch/InfoPage';
 
-export const metadata = { title: 'Privacy | Itch.', description: 'Learn how Itch uses Google sign-in and public problem posts.' };
+export const metadata = { title: 'Privacy', description: 'Learn how Itch handles sign-in, public problem posts, replies, and personal information.', alternates: { canonical: '/privacy' } };
 
 export default function PrivacyPage() {
   return <InfoPage eyebrow="Privacy" title="Your email stays private." intro="Sign in with Google to publish a problem under your display name. Your email address is not shown on posts." sections={[

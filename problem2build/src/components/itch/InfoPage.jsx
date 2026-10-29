@@ -12,12 +12,6 @@ const defaultSteps = [
   { title: 'Make it easier to fix', kicker: '03 — give it a nudge', text: 'A clear problem gives makers somewhere real to begin: a person, a moment, a need.', note: 'Now there’s something to build on.' },
 ];
 
-const aboutVoices = [
-  { label: 'People with an itch', copy: 'That annoying little thing you have learned to live with? It belongs in the conversation.', note: '“Why is this still so hard?”' },
-  { label: 'People who relate', copy: 'A quick “same here” can turn an isolated frustration into a pattern worth noticing.', note: '“I thought it was just me.”' },
-  { label: 'People who make', copy: 'Start with a real moment, then make something that gives people a little room back.', note: '“I can help with that.”' },
-];
-
 function SectionHeading({ eyebrow, title, intro }) {
   return <header className="editorial-heading"><span className="editorial-eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p></header>;
 }
@@ -41,45 +35,10 @@ function HowItWorks({ sections }) {
   );
 }
 
-function AboutStory() {
-  const [active, setActive] = useState(0);
-  const voice = aboutVoices[active];
-  return <div className="about-story-layout">
-    <section className="about-note-scene" aria-live="polite">
-      <div className={`about-note about-note-back note-back-${active}`}><span>little things</span></div>
-      <div className={`about-note about-note-front note-front-${active}`} key={active}><span className="note-tape"/><span className="about-note-label">A NOTE FROM ITCH</span><p>{voice.note}</p><span className="about-note-stroke">↗</span></div>
-      <span className="about-scene-caption">REAL LIFE, IN THE MARGINS.</span>
-    </section>
-    <section className="about-copy">
-      <span className="editorial-eyebrow">A little about us</span>
-      <h2>Big ideas have small beginnings.</h2>
-      <p>Itch starts with the small stuff: the clumsy workaround, the extra five minutes, the thing you complain about every week. Maybe it’s only you. Maybe it isn’t.</p>
-      <div className="voice-tabs" role="tablist" aria-label="Who Itch is for">
-        {aboutVoices.map((item, index) => <button key={item.label} role="tab" aria-selected={active === index} onClick={() => setActive(index)}>{item.label}</button>)}
-      </div>
-      <p className="voice-copy" aria-live="polite">{voice.copy}</p>
-      <Link href="/problems/new" className="ink-link">Put an itch into words <ArrowUpRight size={17} /></Link>
-    </section>
-  </div>;
-}
-
-function AboutKinetic() {
-  const [active, setActive] = useState(0);
-  const cycle = () => setActive(index => (index + 1) % aboutVoices.length);
-  return <div className="itch-collage" aria-label="Interactive Itch note">
-    <div className="collage-sticky collage-sticky-back"><span>YOU TOO?</span><i>↗</i></div>
-    <div className="collage-ring" aria-hidden="true"><span>little things count</span></div>
-    <button className="collage-sticky collage-sticky-front" type="button" onClick={cycle} aria-label="Change the note">
-      <span className="note-tape" />
-      <span className="collage-note-label">ITCH NOTE <b>0{active + 1}</b></span>
-      <strong key={active}>{aboutVoices[active].note}</strong>
-      <span className="collage-flip">TAP TO FLIP <ArrowRight size={13} /></span>
-    </button>
-    <div className="collage-dots" role="tablist" aria-label="Choose a note">
-      {aboutVoices.map((voice, index) => <button key={voice.label} type="button" role="tab" aria-label={voice.label} aria-selected={active === index} onClick={() => setActive(index)} />)}
-    </div>
-    <svg className="collage-scribble" viewBox="0 0 90 70" aria-hidden="true"><path d="M5 56C28 5 66 7 81 24c8 9-1 20-14 15-6-2-8-8-4-11" /></svg>
-  </div>;
+function FounderNote() {
+  return <section className="founder-note founder-note-compact" aria-label="Developer">
+    <p>Itch is developed by <strong>Prasad</strong>.</p>
+  </section>;
 }
 
 function ReadingRoom({ sections, eyebrow }) {
@@ -120,10 +79,10 @@ export default function InfoPage({ eyebrow, title, intro, sections = [], email, 
   const contact = pageType === 'contact';
   return <div className="info-shell">
     <ItchHeader />
-    <main className={`editorial-page editorial-${pageType}`}>
+    <main id="main-content" className={`editorial-page editorial-${pageType}`}>
       <div className="editorial-topline"><Link href="/" className="editorial-back"><ArrowLeft size={15}/> BACK TO ITCH</Link><span>FIELD NOTES <i>•</i> {eyebrow}</span></div>
-      {about ? <div className="about-heading-layout"><SectionHeading eyebrow={eyebrow} title={title} intro={intro}/><AboutKinetic/></div> : <SectionHeading eyebrow={eyebrow} title={title} intro={intro}/>}
-      {how ? <HowItWorks sections={sections}/> : about ? <AboutStory/> : contact ? <ContactDesk email={email}/> : <ReadingRoom sections={sections} eyebrow={eyebrow}/>}
+      <SectionHeading eyebrow={eyebrow} title={title} intro={intro}/>
+      {how ? <HowItWorks sections={sections}/> : about ? <FounderNote/> : contact ? <ContactDesk email={email}/> : <ReadingRoom sections={sections} eyebrow={eyebrow}/>}
       <div className="editorial-bottom"><span><NotebookPen size={15}/> A SMALL NOTE FROM ITCH</span><Link href="/explore">See what people are talking about <CornerDownRight size={16}/></Link></div>
     </main>
     <ItchFooter />

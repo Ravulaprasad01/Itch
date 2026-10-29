@@ -1,5 +1,6 @@
-.env.local
-.env*.local
+.env*
+!.env.example
+!.env.*.example
 node_modules/
 .next/
 .next-dev/
@@ -8,3 +9,9 @@ out/
 dist/
 *.log
 .DS_Store
+
+# Local design tooling and generated launch media
+.agents/
+.taste-skill/
+skills-lock.json
+brag-output-*/

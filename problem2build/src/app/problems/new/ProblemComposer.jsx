@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Lightbulb, ShieldCheck } from 'lucide-react';
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, runTransaction, serverTimestamp, where } from 'firebase/firestore';
+import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, MessageCircle, ShieldCheck } from 'lucide-react';
 import ItchHeader from '@/components/itch/ItchHeader';
 import ItchFooter from '@/components/itch/ItchFooter';
 import { auth, db, ensurePublicUser, getPublicDisplayName, isFirebaseConfigured } from '@/lib/firebase';
@@ -20,12 +20,53 @@ const CATEGORIES = [
 ];
 
 const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Rarely'];
+const FUNDING_CURRENCIES = [
+  { value: 'INR', label: 'INR ₹' },
+  { value: 'USD', label: 'USD $' },
+  { value: 'GBP', label: 'GBP £' },
+  { value: 'EUR', label: 'EUR €' },
+];
 const PRIORITIES = [
   { value: 'Low', description: 'An inconvenience, but there is a workaround.' },
   { value: 'Medium', description: 'A recurring drain on time or effort.' },
   { value: 'High', description: 'Blocks important work or causes significant impact.' },
 ];
 const DRAFT_KEY = 'itch-problem-draft-v1';
+const MATCH_STOP_WORDS = new Set(['about', 'after', 'again', 'also', 'been', 'being', 'because', 'before', 'between', 'could', 'does', 'doing', 'each', 'from', 'have', 'help', 'into', 'just', 'more', 'most', 'other', 'over', 'same', 'some', 'such', 'than', 'that', 'their', 'them', 'then', 'there', 'these', 'they', 'this', 'those', 'through', 'when', 'where', 'which', 'while', 'with', 'would', 'your', 'problem', 'problems', 'happens', 'happen']);
+
+const matchTokens = value => new Set(
+  String(value || '').toLowerCase().match(/[a-z0-9]{3,}/g)?.filter(token => !MATCH_STOP_WORDS.has(token)) || [],
+);
+
+const overlapRatio = (left, right) => {
+  if (!left.size || !right.size) return 0;
+  let shared = 0;
+  left.forEach(token => { if (right.has(token)) shared += 1; });
+  return shared / Math.max(1, Math.min(left.size, right.size));
+};
+
+const findSimilarProblems = (problems, { title, description, category }) => {
+  const titleTokens = matchTokens(title);
+  const contextTokens = matchTokens(description);
+  const draftTokens = new Set([...titleTokens, ...contextTokens]);
+  if (draftTokens.size < 3) return [];
+
+  return problems.map(problem => {
+    const existingTitle = matchTokens(problem.title);
+    const existingContext = matchTokens(`${problem.description || ''} ${problem.audience || ''} ${problem.workaround || ''}`);
+    const existingAll = new Set([...existingTitle, ...existingContext]);
+    const titleMatch = overlapRatio(titleTokens, existingTitle);
+    const contextMatch = overlapRatio(contextTokens, existingAll);
+    const overallMatch = overlapRatio(draftTokens, existingAll);
+    const categoryMatch = category && problem.category?.toLowerCase() === category.toLowerCase() ? 0.12 : 0;
+    const score = titleMatch * 0.28 + contextMatch * 0.47 + overallMatch * 0.25 + categoryMatch;
+    return { ...problem, matchScore: score };
+  })
+    .filter(problem => problem.matchScore >= 0.19)
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 3);
+};
+
 const COMPOSER_STEPS = [
   { title: 'The moment', hint: 'Describe what keeps getting in your way.' },
   { title: 'Who it affects', hint: 'Add the people and workarounds around it.' },
@@ -39,6 +80,9 @@ export default function ProblemComposer() {
   const [category, setCategory] = useState('');
   const [frequency, setFrequency] = useState('');
   const [priority, setPriority] = useState('Medium');
+  const [fundingInterest, setFundingInterest] = useState(false);
+  const [fundingAmount, setFundingAmount] = useState('');
+  const [fundingCurrency, setFundingCurrency] = useState('INR');
   const [audience, setAudience] = useState('');
   const [workaround, setWorkaround] = useState('');
   const [notice, setNotice] = useState('');
@@ -46,14 +90,65 @@ export default function ProblemComposer() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [accountType, setAccountType] = useState('');
+  const [authReady, setAuthReady] = useState(false);
   const [submittedProblemId, setSubmittedProblemId] = useState('');
   const [authorName, setAuthorName] = useState('');
   const [step, setStep] = useState(0);
+  const [publishedProblems, setPublishedProblems] = useState([]);
+  const [dismissSimilar, setDismissSimilar] = useState(false);
+  const [similarProblemsReady, setSimilarProblemsReady] = useState(false);
+
+  const shouldSuggestSimilar = step === 0 && !dismissSimilar && (title.trim().length >= 12 || description.trim().length >= 40);
+  const similarProblems = useMemo(() => findSimilarProblems(publishedProblems, { title, description, category }), [publishedProblems, title, description, category]);
 
   useEffect(() => {
-    if (!auth) return undefined;
-    return onAuthStateChanged(auth, setCurrentUser);
+    if (!db || !shouldSuggestSimilar) {
+      setSimilarProblemsReady(false);
+      return undefined;
+    }
+
+    const recentProblems = query(collection(db, 'problems'), where('moderationStatus', '==', 'visible'), orderBy('createdAt', 'desc'), limit(50));
+    return onSnapshot(recentProblems, snapshot => {
+      setPublishedProblems(snapshot.docs.flatMap(problemDoc => {
+        const data = problemDoc.data();
+        if (data.status !== 'open') return [];
+        return [{
+          id: problemDoc.id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          audience: data.audience,
+          workaround: data.workaround,
+        }];
+      }));
+      setSimilarProblemsReady(true);
+    }, () => {
+      // Suggestions are optional. A read failure should never prevent a new post.
+      setPublishedProblems([]);
+      setSimilarProblemsReady(true);
+    });
+  }, [shouldSuggestSimilar]);
+
+  useEffect(() => {
+    if (!auth) {
+      setAuthReady(true);
+      return undefined;
+    }
+    return onAuthStateChanged(auth, user => { setCurrentUser(user); setAuthReady(true); });
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setAccountType('');
+    if (!db || !currentUser?.uid) return () => { active = false; };
+    getDoc(doc(db, 'users', currentUser.uid)).then(snapshot => {
+      if (active) setAccountType(snapshot.exists() ? snapshot.data().accountType || '' : '');
+    }).catch(() => {
+      if (active) setAccountType('');
+    });
+    return () => { active = false; };
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     try {
@@ -64,6 +159,9 @@ export default function ProblemComposer() {
       setCategory(draft.category || '');
       setFrequency(draft.frequency || '');
       setPriority(draft.priority || 'Medium');
+      setFundingInterest(draft.fundingInterest === true);
+      setFundingAmount(draft.fundingAmount ? String(draft.fundingAmount) : '');
+      setFundingCurrency(FUNDING_CURRENCIES.some(item => item.value === draft.fundingCurrency) ? draft.fundingCurrency : 'INR');
       setAudience(draft.audience || '');
       setWorkaround(draft.workaround || '');
       setNotice('Draft restored from this browser.');
@@ -95,14 +193,42 @@ export default function ProblemComposer() {
 
   const goBack = () => { setNotice(''); setStep(Math.max(0, step - 1)); };
 
+  const addWritingPrompt = prompt => {
+    const current = description.trimEnd();
+    if (current.endsWith(prompt)) return;
+    const nextDescription = current ? `${current}${/\s$/.test(description) ? '' : ' '}${prompt}` : prompt;
+    setDescription(nextDescription);
+    setStep(0);
+    setShowPreview(false);
+    window.requestAnimationFrame(() => {
+      const field = document.getElementById('problem-description');
+      field?.focus();
+      field?.setSelectionRange(field.value.length, field.value.length);
+    });
+  };
+
   const handleSubmitProblem = async () => {
+    const numericFundingAmount = fundingAmount === '' ? null : Number(fundingAmount);
+    if (fundingInterest && numericFundingAmount !== null && (
+      !Number.isFinite(numericFundingAmount)
+      || numericFundingAmount < 1
+      || numericFundingAmount > 1_000_000
+      || Math.abs(numericFundingAmount * 100 - Math.round(numericFundingAmount * 100)) > 1e-7
+    )) {
+      setNotice('Enter a potential amount between 1 and 1,000,000, with up to two decimal places.');
+      return;
+    }
     if (!isFirebaseConfigured || !db || !auth) {
       setNotice('Firebase is not configured yet. Add your Firebase web app values to .env.local, then restart the app.');
       return;
     }
     if (!currentUser) {
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, description, category, frequency, priority, audience, workaround }));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, description, category, frequency, priority, audience, workaround, fundingInterest, fundingAmount, fundingCurrency }));
       window.location.href = `/auth?next=${encodeURIComponent('/problems/new')}`;
+      return;
+    }
+    if (accountType !== 'poster') {
+      setNotice('Your profile is set to Developer. Switch to Problem poster from My Profile to publish a problem.');
       return;
     }
 
@@ -111,50 +237,87 @@ export default function ProblemComposer() {
     try {
       const publicUser = await ensurePublicUser(currentUser);
       const displayName = publicUser.displayName || getPublicDisplayName(currentUser);
-      const post = await addDoc(collection(db, 'problems'), {
-        title: title.trim(),
-        description: description.trim(),
-        category,
-        frequency,
-        priority,
-        audience: audience.trim(),
-        workaround: workaround.trim(),
-        authorId: currentUser.uid,
-        authorName: displayName,
-        status: 'open',
-        meTooCount: 0,
-        wantThisCount: 0,
-        devInterestCount: 0,
-        createdAt: serverTimestamp(),
+      const profileRef = doc(db, 'users', currentUser.uid);
+      const rateRef = doc(db, 'rateLimits', currentUser.uid);
+      const problemRef = doc(collection(db, 'problems'));
+      await runTransaction(db, async transaction => {
+        const [profileSnapshot, rateSnapshot] = await Promise.all([
+          transaction.get(profileRef),
+          transaction.get(rateRef),
+        ]);
+        if (!profileSnapshot.exists() || !profileSnapshot.data().displayName) {
+          throw new Error('Finish setting up your Itch display name before publishing.');
+        }
+        const lastProblemAt = rateSnapshot.data()?.lastProblemAt?.toMillis?.();
+        if (lastProblemAt && Date.now() - lastProblemAt < 30_000) {
+          throw new Error('Please wait 30 seconds before publishing another problem.');
+        }
+        transaction.set(problemRef, {
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          frequency,
+          priority,
+          audience: audience.trim(),
+          workaround: workaround.trim(),
+          fundingInterest,
+          fundingAmount: fundingInterest ? numericFundingAmount : null,
+          fundingCurrency,
+          authorId: currentUser.uid,
+          authorName: profileSnapshot.data().displayName,
+          status: 'open',
+          moderationStatus: 'visible',
+          meTooCount: 0,
+          wantThisCount: 0,
+          devInterestCount: 0,
+          createdAt: serverTimestamp(),
+        });
+        transaction.set(rateRef, { lastProblemAt: serverTimestamp() }, { merge: true });
       });
       setAuthorName(displayName);
-      setSubmittedProblemId(post.id);
+      setSubmittedProblemId(problemRef.id);
       setSubmitted(true);
       setNotice(`Your problem is live in Explore as ${displayName}. Your email is private.`);
       window.localStorage.removeItem(DRAFT_KEY);
     } catch (error) {
-      setNotice(error?.message || 'We could not publish your problem. Please try again.');
+      setNotice(error?.message === 'Please wait 30 seconds before publishing another problem.'
+        || error?.message === 'Finish setting up your Itch display name before publishing.'
+        ? error.message
+        : 'We could not publish your problem. Please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface antialiased">
+    <div className="min-h-[100svh] bg-background text-on-surface antialiased">
       <ItchHeader />
 
-      <main className="composer-page">
+      <main id="main-content" className="composer-page">
         <header className="composer-hero">
           <div>
-            <p className="composer-kicker"><span /> A NOTE TO THE FUTURE</p>
-            <h1>Start with the<br /><em>thing that bugs you.</em></h1>
-            <p>One clear moment is enough. We’ll help you shape it into something others can understand.</p>
+            <h1>What keeps getting<br /><em>in your way?</em></h1>
+            <p>Describe what happens and how it affects you. You can add more context as you go.</p>
           </div>
-          <div className="composer-hero-note-stack" aria-label="Quick tips for writing a problem">
-            <article className="composer-hero-note composer-hero-note-1"><span>START WITH A MOMENT</span><strong>What happened?</strong><i /></article>
-            <article className="composer-hero-note composer-hero-note-2"><span>KEEP IT SIMPLE</span><strong>One clear example is enough.</strong><i /></article>
-            <article className="composer-hero-note composer-hero-note-3"><span>YOUR PRIVACY</span><strong>Your email stays private.</strong><i /></article>
-          </div>
+          <aside className="composer-spark" aria-label="Interactive problem story preview">
+            <div className="composer-spark-top"><span>YOUR PROBLEM, TAKING SHAPE</span><i aria-hidden="true" /></div>
+            <div className="composer-spark-title">{title || 'A moment worth fixing'}</div>
+            <div className="composer-spark-flow">
+              <div className="composer-spark-line" aria-hidden="true"><i style={{ transform: `scaleY(${step >= 2 ? 1 : step === 1 ? 0.5 : 0.12})` }} /></div>
+              <div className={`composer-spark-point${description ? ' is-filled' : ' is-current'}`}>
+                <i aria-hidden="true"/><div><b>The moment</b><p>{description || 'What happens, and what does it interrupt?'}</p></div>
+              </div>
+              <div className={`composer-spark-point${audience || workaround ? ' is-filled' : step === 1 ? ' is-current' : ''}`}>
+                <i aria-hidden="true"/><div><b>Who feels it</b><p>{audience || 'The people caught in the same friction'}</p></div>
+              </div>
+              <div className={`composer-spark-point${workaround ? ' is-filled' : step >= 1 ? ' is-current' : ''}`}>
+                <i aria-hidden="true"/><div><b>What happens next</b><p>{workaround || 'The workaround they rely on today'}</p></div>
+              </div>
+            </div>
+            <div className="composer-spark-prompts"><span>Need a first line?</span><div>
+              {[['When…', 'When it happens,'], ['I have to…', 'I have to'], ['So…', 'That leaves me']].map(([label, prompt]) => <button key={label} type="button" onClick={() => addWritingPrompt(prompt)}>{label}</button>)}
+            </div></div>
+          </aside>
         </header>
 
         <div className="composer-layout">
@@ -184,7 +347,7 @@ export default function ProblemComposer() {
                 placeholder="For example: Bank exports break my monthly reconciliation"
                 className="w-full rounded-lg border border-white/10 bg-surface-container/40 px-4 py-3 text-sm text-on-surface outline-none transition placeholder:text-tertiary/45 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
               />
-              <p className="text-right font-mono text-[10px] text-tertiary/55">{title.length}/120</p>
+              <p className="text-right text-xs text-tertiary/70">{title.length}/120</p>
             </div>
 
             <div className="space-y-2">
@@ -200,8 +363,32 @@ export default function ProblemComposer() {
                 placeholder="Explain when it happens, why it is frustrating, and what it costs you."
                 className="w-full resize-y rounded-lg border border-white/10 bg-surface-container/40 px-4 py-3 text-sm leading-relaxed text-on-surface outline-none transition placeholder:text-tertiary/45 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
               />
-              <p className="text-right font-mono text-[10px] text-tertiary/55">{description.length}/600</p>
+              <p className="text-right text-xs text-tertiary/70">{description.length}/600</p>
             </div>
+
+            {shouldSuggestSimilar && similarProblemsReady && similarProblems.length > 0 && <aside className="composer-similar" aria-live="polite" aria-labelledby="composer-similar-title">
+              <div className="composer-similar-heading">
+                <div>
+                  <span>BEFORE YOU POST</span>
+                  <h3 id="composer-similar-title">Some similar conversations</h3>
+                  <p>Optional: add your experience to a related problem, or keep writing a new post of your own.</p>
+                </div>
+                <MessageCircle size={19} aria-hidden="true" />
+              </div>
+              <div className="composer-similar-list">
+                {similarProblems.map(problem => <article className="composer-similar-item" key={problem.id}>
+                  <div className="composer-similar-item-copy">
+                    <span>{problem.category || 'Community'}</span>
+                    <h4>{problem.title || 'Community problem'}</h4>
+                    {problem.description && <p>{problem.description}</p>}
+                  </div>
+                  <Link className="composer-similar-link" href={`/problems/${problem.id}#problem-reply`}>
+                    Contribute to this problem <ArrowRight size={14} aria-hidden="true" />
+                  </Link>
+                </article>)}
+              </div>
+              <button type="button" className="composer-similar-continue" onClick={() => setDismissSimilar(true)}>Continue with a new post</button>
+            </aside>}
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
@@ -299,7 +486,30 @@ export default function ProblemComposer() {
 
           </>}
 
-          {step === 3 && <div className="composer-review-callout"><CheckCircle2 size={20}/><div><strong>{submitted ? `Posted by ${authorName}` : 'Your problem is ready to review.'}</strong><p>{submitted ? 'Your name appears on the post. Your email is never displayed.' : 'When you submit it, the problem appears in Explore under your Google name.'}</p></div></div>}
+          {step === 3 && <>
+            <section className="composer-funding" aria-labelledby="funding-title">
+              <div className="composer-funding-heading">
+                <span>OPTIONAL · FOR BUILDERS</span>
+                <h2 id="funding-title">Would you consider contributing money if this gets built?</h2>
+                <p>A visible signal can help developers understand the potential support behind an urgent problem.</p>
+              </div>
+              <label className="composer-funding-toggle">
+                <input type="checkbox" checked={fundingInterest} onChange={event => setFundingInterest(event.target.checked)} />
+                <span><strong>I may contribute to a solution</strong><small>This is optional and non-binding. No payment is collected.</small></span>
+              </label>
+              {fundingInterest && <div className="composer-funding-amount">
+                <label htmlFor="funding-amount">Possible amount <span>Optional</span></label>
+                <div className="composer-funding-inputs">
+                  <select aria-label="Contribution currency" value={fundingCurrency} onChange={event => setFundingCurrency(event.target.value)}>
+                    {FUNDING_CURRENCIES.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <input id="funding-amount" type="number" min="1" max="1000000" step="0.01" inputMode="decimal" placeholder="Leave blank if unsure" value={fundingAmount} onChange={event => setFundingAmount(event.target.value)} />
+                </div>
+                <p>The interest and any amount you enter will be public so developers can see it. It is not a pledge or payment.</p>
+              </div>}
+            </section>
+            <div className="composer-review-callout"><CheckCircle2 size={20}/><div><strong>{submitted ? `Posted by ${authorName}` : 'Your problem is ready to review.'}</strong><p>{submitted ? 'Your name appears on the post. Your email is never displayed.' : 'When you submit it, the problem appears in Explore under your Google name.'}</p></div></div>
+          </>}
 
           <div className="composer-form-actions">
             {step > 0 && step < 3 && <button type="button" onClick={goBack} className="composer-back"><ChevronLeft size={16}/> Back</button>}
@@ -308,18 +518,9 @@ export default function ProblemComposer() {
           </div>
         </form>
 
-        <aside className="composer-guide">
-          <div className={`composer-guide-note composer-guide-tone-${Math.min(step, 2)}`}>
-            <span className="composer-note-tape"/><span className="composer-guide-label"><Lightbulb size={14}/> A LITTLE NUDGE</span>
-            <h2>{step < 3 ? COMPOSER_STEPS[step].title : 'One last look'}</h2>
-            <p>{step < 3 ? COMPOSER_STEPS[step].hint : 'If it sounds like a real moment from your day, you’ve got it.'}</p>
-            {step === 0 && <div className="composer-example"><span>TRY THIS SHAPE</span><strong>When ___ happens, I have to ___, which makes ___ harder.</strong></div>}
-            {step === 1 && <div className="composer-example"><span>KEEP IT HUMAN</span><strong>Who runs into this too? What do you do instead?</strong></div>}
-            {step === 2 && <div className="composer-example"><span>READY TO SHARE</span><strong>Your post will be public under your display name. Your email stays private.</strong></div>}
-          </div>
-          <p className="composer-guide-foot">Published problems are public. Your display name appears with the post; your email stays private.</p>
-        </aside>
         </div>
+
+        <p className="composer-privacy-note"><ShieldCheck size={16}/> Your post is public under your display name. Your email stays private.</p>
 
         {notice && (
           <div role="status" className="mt-5 flex items-start gap-3 rounded-lg border border-white/10 bg-surface-container/30 p-4 text-sm text-tertiary">
@@ -342,6 +543,7 @@ export default function ProblemComposer() {
               {category && <span>{category}</span>}
               {frequency && <span>{frequency}</span>}
               <span>{priority} priority</span>
+              {fundingInterest && <span>{fundingAmount ? `Potential ${fundingCurrency} ${Number(fundingAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : 'Open to contributing'}</span>}
             </div>
             {submitted && <Link href={submittedProblemId ? `/problems/${submittedProblemId}` : '/explore'} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80">View your problem <ArrowRight size={15}/></Link>}
           </section>

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signInWithPopup } from 'firebase/auth';
-import { ArrowLeft, CheckCircle2, LoaderCircle, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Code2, LoaderCircle, ShieldCheck, UserRound } from 'lucide-react';
 import { auth, db, getPublicDisplayName, googleProvider, isDisplayNameAvailable, isFirebaseConfigured, savePublicDisplayName } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -13,10 +13,12 @@ export default function GoogleSignInPanel() {
   const router = useRouter();
   const initialAuthCheck = useRef(true);
   const authFlowStarted = useRef(false);
+  const popupInFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [displayName, setDisplayName] = useState('');
+  const [accountType, setAccountType] = useState('');
   const [checkingName, setCheckingName] = useState(false);
   const [nameAvailability, setNameAvailability] = useState('');
 
@@ -29,13 +31,15 @@ export default function GoogleSignInPanel() {
 
       try {
         const profile = db ? await getDoc(doc(db, 'users', user.uid)) : null;
-        const savedName = profile?.exists() ? profile.data().displayName : '';
-        if (savedName) {
+        const savedProfile = profile?.exists() ? profile.data() : {};
+        const savedName = savedProfile.displayName || '';
+        if (savedName && ['poster', 'developer'].includes(savedProfile.accountType)) {
           router.replace('/explore');
           return;
         }
         setCurrentUser(user);
-        setDisplayName(getPublicDisplayName(user));
+        setDisplayName(savedName || getPublicDisplayName(user));
+        setAccountType(savedProfile.accountType || '');
       } catch {
         setCurrentUser(user);
         setDisplayName(getPublicDisplayName(user));
@@ -44,30 +48,38 @@ export default function GoogleSignInPanel() {
   }, [router]);
 
   const signIn = async () => {
+    // State updates are asynchronous; use a ref to prevent two popup operations
+    // from starting if the button is clicked repeatedly before React rerenders.
+    if (popupInFlight.current) return;
     if (!auth || !isFirebaseConfigured) {
       setMessage('Google sign-in is not configured yet. Add the Firebase web app values to .env.local and restart the app.');
       return;
     }
 
+    popupInFlight.current = true;
     setBusy(true);
     setMessage('');
     authFlowStarted.current = true;
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const profile = db ? await getDoc(doc(db, 'users', result.user.uid)) : null;
-      const savedName = profile?.exists() ? profile.data().displayName : '';
-      if (savedName) {
+      const savedProfile = profile?.exists() ? profile.data() : {};
+      const savedName = savedProfile.displayName || '';
+      if (savedName && ['poster', 'developer'].includes(savedProfile.accountType)) {
         router.replace('/explore');
         router.refresh();
         return;
       }
       setCurrentUser(result.user);
-      setDisplayName(getPublicDisplayName(result.user));
+      setDisplayName(savedName || getPublicDisplayName(result.user));
+      setAccountType(savedProfile.accountType || '');
     } catch (error) {
+      authFlowStarted.current = false;
       setMessage(error?.code === 'auth/popup-closed-by-user'
         ? 'Sign-in was closed before it finished.'
-        : error?.message || 'Google sign-in could not be completed. Please try again.');
+        : 'Google sign-in could not be completed. Check your connection and try again.');
     } finally {
+      popupInFlight.current = false;
       setBusy(false);
     }
   };
@@ -98,8 +110,13 @@ export default function GoogleSignInPanel() {
     setBusy(true);
     setMessage('');
     try {
-      await savePublicDisplayName(currentUser, displayName);
-      router.replace('/explore');
+      if (!accountType) {
+        setMessage('Choose the profile that best describes how you’ll use Itch.');
+        setBusy(false);
+        return;
+      }
+      await savePublicDisplayName(currentUser, displayName, accountType);
+      router.replace('/profile');
       router.refresh();
     } catch (error) {
       setMessage(error?.code === 'display-name/taken'
@@ -112,7 +129,7 @@ export default function GoogleSignInPanel() {
     }
   };
 
-  return <main className="flex min-h-screen items-center justify-center px-5 py-16 text-on-surface">
+  return <main id="main-content" className="flex min-h-dvh items-center justify-center px-5 py-16 text-on-surface">
     <section className="w-full max-w-md rounded-3xl border border-white/10 bg-surface-container/50 p-7 shadow-2xl sm:p-9">
       <Link href="/" className="mb-9 inline-flex items-center gap-3 text-sm text-tertiary transition hover:text-on-surface">
         <Image src="/itch-mark.svg" alt="" width={38} height={38} />
@@ -120,22 +137,33 @@ export default function GoogleSignInPanel() {
       </Link>
       <Link href="/" className="mb-6 flex w-fit items-center gap-2 text-xs text-tertiary transition hover:text-on-surface"><ArrowLeft size={15}/> Back to Itch</Link>
       <p className="font-mono text-[10px] font-semibold tracking-[.18em] text-primary">SIGN IN TO ITCH</p>
-      <h1 className="mt-3 text-3xl font-extrabold tracking-tight">{currentUser ? 'Choose your name' : 'Welcome to Itch.'}</h1>
+      <h1 className="mt-3 text-3xl font-extrabold tracking-tight">{currentUser ? 'Set up your Itch profile' : 'Welcome to Itch.'}</h1>
       <p className="mt-3 text-sm leading-6 text-tertiary">{currentUser
-        ? 'This is the name people will see on your problem posts. Pick a name that is available, then you’ll head to Explore.'
+        ? 'Choose how you’ll take part. You can change this later from your profile.'
         : 'Sign in with Google to post problems and join the conversation. Your email stays private.'}</p>
 
       {currentUser ? <form onSubmit={saveName} className="mt-7">
+        <fieldset className="mb-6">
+          <legend className="mb-2 text-xs font-semibold text-on-surface-variant">I’m here to…</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => { setAccountType('poster'); setMessage(''); }} aria-pressed={accountType === 'poster'} className={`itch-role-choice${accountType === 'poster' ? ' is-selected' : ''}`}>
+              <span className="itch-role-icon"><UserRound size={17}/></span><span><strong>Share a problem</strong><small>Post it and follow the conversation.</small></span>
+            </button>
+            <button type="button" onClick={() => { setAccountType('developer'); setMessage(''); }} aria-pressed={accountType === 'developer'} className={`itch-role-choice${accountType === 'developer' ? ' is-selected' : ''}`}>
+              <span className="itch-role-icon"><Code2 size={17}/></span><span><strong>Build solutions</strong><small>Offer help and earn verified credit.</small></span>
+            </button>
+          </div>
+        </fieldset>
         <label htmlFor="public-display-name" className="mb-2 block text-xs font-semibold text-on-surface-variant">Display name</label>
         <div className="flex min-h-12 items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 focus-within:border-primary/70">
           <UserRound size={17} className="shrink-0 text-tertiary" />
           <input id="public-display-name" value={displayName} onChange={event => { setDisplayName(event.target.value); setNameAvailability(''); }} onBlur={checkName} maxLength={30} autoComplete="nickname" required className="w-full bg-transparent text-sm text-on-surface outline-none placeholder:text-tertiary" placeholder="e.g. Alex Chen" />
         </div>
-        <p className="mt-2 text-xs leading-5 text-tertiary">Names are unique, 2–30 characters. You can change yours here whenever you sign in.</p>
+        <p className="mt-2 text-xs leading-5 text-tertiary">Names are unique, 2–30 characters. This is how the community will see you.</p>
         {(nameAvailability || checkingName) && <p aria-live="polite" className={`mt-1 text-xs ${nameAvailability === 'This name is available.' ? 'text-secondary' : 'text-tertiary'}`}>{checkingName ? 'Checking name…' : nameAvailability}</p>}
         <button type="submit" disabled={busy || checkingName} className="mt-5 flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-primary px-4 text-sm font-bold text-on-primary transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60">
           {busy ? <LoaderCircle size={18} className="animate-spin"/> : <CheckCircle2 size={18}/>}
-          {busy ? 'Saving name…' : 'Save name and explore'}
+          {busy ? 'Saving profile…' : 'Save profile'}
         </button>
       </form> : <button type="button" onClick={signIn} disabled={busy} className="mt-7 flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 text-sm font-bold text-slate-900 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60">
         {busy ? <LoaderCircle size={18} className="animate-spin"/> : <GoogleMark/>}
@@ -147,7 +175,7 @@ export default function GoogleSignInPanel() {
         <span>Your display name is saved to your Itch account and shown with your posts. Your email is not shown publicly.</span>
       </div>
       {message && <p role="alert" className="mt-4 rounded-xl border border-red-300/20 bg-red-400/10 p-3 text-xs leading-5 text-red-100">{message}</p>}
-      <p className="mt-5 flex items-center gap-2 text-xs text-tertiary"><CheckCircle2 size={14} className="text-secondary"/> After saving your name, you’ll go to Explore Problems.</p>
+      <p className="mt-5 flex items-center gap-2 text-xs text-tertiary"><CheckCircle2 size={14} className="text-secondary"/> Your profile mode controls the tools and activity shown on your profile.</p>
     </section>
   </main>;
 }

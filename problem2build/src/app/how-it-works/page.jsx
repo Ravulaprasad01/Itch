@@ -1,6 +1,6 @@
 import InfoPage from '@/components/itch/InfoPage';
 
-export const metadata = { title: 'How It Works | Itch.', description: 'Share a friction, find common ground, and help builders see what matters.' };
+export const metadata = { title: 'How Itch Works', description: 'Learn how to share an everyday problem, find people with similar experiences, and start a useful conversation.', alternates: { canonical: '/how-it-works' } };
 
 export default function HowItWorksPage() {
   return <InfoPage pageType="how" eyebrow="How it works" title="From a daily itch to a clearer signal." intro="Itch gives a simple path to describe a friction, see who relates, and make the underlying need easier for builders to understand." sections={[

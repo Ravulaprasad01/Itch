@@ -1,6 +1,6 @@
 import InfoPage from '@/components/itch/InfoPage';
 
-export const metadata = { title: 'Terms | Itch.', description: 'Simple terms for using the Itch community.' };
+export const metadata = { title: 'Terms of Use', description: 'The terms for using Itch and taking part in its public community conversations.', alternates: { canonical: '/terms' } };
 
 export default function TermsPage() {
   return <InfoPage eyebrow="Terms" title="A few basics for using Itch." intro="By using the site, please help keep it useful, respectful, and safe for everyone." sections={[
