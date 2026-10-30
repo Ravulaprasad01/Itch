@@ -21,7 +21,7 @@ export default function ItchLoader() {
           <Image src="/itch-mark.svg" alt="" width={54} height={54} priority className="itch-loader-mark" />
         </div>
         <p className="itch-loader-label">Getting Itch ready</p>
-        <p className="itch-loader-flow" aria-hidden="true"><span>Share it</span><i /><span>Support it</span><i /><span>Build it</span></p>
+        <p className="itch-loader-flow" aria-hidden="true"><span>Share it, Support it, Build it.</span></p>
       </div>
     </div>
   );
