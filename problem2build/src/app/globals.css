@@ -5374,32 +5374,6 @@ main#main-content:has(> section.max-w-md) > section p,main#main-content:has(> se
   .community-privacy-note { padding:18px; }
 }
 
-.hero-community-promise { margin:18px 0 16px; color:#bdbbc7; font-size:clamp(15px,1.3vw,18px); font-weight:600; line-height:1.5; }
-.hero-community-promise span { color:var(--cinema-mint); }
-.home-recent { width:calc(100% - clamp(40px,12vw,168px)); max-width:1280px; margin:0 auto; padding:clamp(56px,8vw,104px) 0 clamp(64px,9vw,116px); }
-.home-recent-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:28px; }
-.home-recent-heading .cinema-eyebrow { margin:0 0 13px; color:var(--cinema-mint); }
-.home-recent-heading h2 { margin:0; color:var(--cinema-ink); font-size:clamp(2rem,4.4vw,3.8rem); font-weight:720; letter-spacing:-.065em; line-height:1.05; }
-.home-recent-heading h2 em { color:var(--cinema-violet); font-style:normal; }
-.home-recent-live { display:inline-flex; align-items:center; gap:9px; flex:0 0 auto; padding:9px 12px; border:1px solid rgba(237,238,246,.12); border-radius:999px; color:#aaa9b5; font-size:11px; }
-.home-recent-live i { width:7px; height:7px; border-radius:50%; background:var(--cinema-lime); box-shadow:0 0 12px rgba(213,255,89,.45); }
-.home-recent-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-.home-problem-card { display:flex; min-height:258px; flex-direction:column; gap:15px; padding:21px; border:1px solid rgba(237,238,246,.13); border-radius:15px; background:linear-gradient(150deg,rgba(23,24,36,.94),rgba(13,14,20,.96)); color:inherit; text-decoration:none; transition:transform .22s ease,border-color .22s ease,background .22s ease; }
-.home-problem-card:hover { transform:translateY(-4px); border-color:rgba(154,130,255,.5); background:linear-gradient(150deg,rgba(29,28,46,.96),rgba(13,14,20,.98)); }
-.home-problem-card:focus-visible { outline:2px solid var(--cinema-lime); outline-offset:3px; }
-.home-problem-card-top,.home-problem-card-bottom { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.home-problem-card-top { color:#9e9dac; font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; }
-.home-problem-card-top span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.home-problem-card-top span:last-child { color:#777683; font-family:monospace; }
-.home-problem-card h3 { display:-webkit-box; overflow:hidden; margin:0; color:#f2f0e9; font-size:clamp(16px,1.55vw,20px); font-weight:700; letter-spacing:-.035em; line-height:1.32; -webkit-box-orient:vertical; -webkit-line-clamp:3; }
-.home-problem-card p { display:-webkit-box; overflow:hidden; margin:0; color:#a9a8b5; font-size:12px; line-height:1.7; -webkit-box-orient:vertical; -webkit-line-clamp:3; }
-.home-problem-card-bottom { margin-top:auto; padding-top:14px; border-top:1px solid rgba(237,238,246,.1); color:#bcbac7; font-size:11px; }
-.home-problem-card-bottom svg { color:var(--cinema-lime); transition:transform .2s ease; }
-.home-problem-card:hover .home-problem-card-bottom svg { transform:translate(2px,-2px); }
-.home-recent-status { margin:0; padding:24px; border:1px solid rgba(237,238,246,.12); border-radius:14px; background:rgba(18,19,27,.76); color:#aaa9b5; font-size:14px; line-height:1.65; }
-.home-recent-status a { color:var(--cinema-lime); text-underline-offset:3px; }
-@media (max-width:980px) { .home-recent-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media (max-width:600px) { .hero-community-promise { margin:15px 0 14px; font-size:15px; }.home-recent { width:calc(100% - 40px); padding:52px 0 68px; }.home-recent-heading { align-items:flex-start; flex-direction:column; gap:14px; margin-bottom:20px; }.home-recent-live { align-self:flex-start; }.home-recent-grid { grid-template-columns:1fr; gap:11px; }.home-problem-card { min-height:210px; padding:18px; }.home-problem-card h3 { font-size:19px; } }
 /* Product Hunt entry point: make the builder path visible and give slow feed requests a recovery action. */
 .hero-builder-invitation { display:flex; max-width:530px; align-items:center; gap:13px; margin-top:24px; padding:14px 16px; border:1px solid rgba(154,130,255,.22); border-radius:12px; background:linear-gradient(110deg,rgba(154,130,255,.10),rgba(18,19,28,.62)); color:#c8c6d2; text-align:left; }
 .hero-builder-invitation>svg { flex:0 0 auto; color:var(--cinema-violet); }
