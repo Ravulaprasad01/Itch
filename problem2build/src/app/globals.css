@@ -2647,10 +2647,10 @@ body { font-size:16px; }
 .solar-system { position:relative; width:min(100%,500px); aspect-ratio:1; isolation:isolate; }
 .solar-system::before { position:absolute; inset:19%; border-radius:50%; background:rgba(153,126,255,.035); content:""; filter:blur(9px); }
 .solar-orbit { position:absolute; top:50%; left:50%; display:block; border:none; border-radius:50%; transform:translate(-50%,-50%); animation:solarOrbitSpin var(--orbit-speed) linear infinite; }
-.solar-orbit-outer { width:94%; height:94%; --orbit-speed:46s; }
-.solar-orbit-middle { width:76%; height:76%; border-style:dashed; border-color:rgba(138,220,199,.2); --orbit-speed:36s; animation-delay:-11s; }
-.solar-orbit-inner { width:57%; height:57%; border-color:rgba(216,255,87,.2); --orbit-speed:28s; animation-delay:-8s; }
-.solar-orbit-support { width:40%; height:40%; border-style:dotted; border-color:rgba(187,174,255,.25); --orbit-speed:22s; animation-delay:-14s; }
+.solar-orbit-outer { width:94%; height:94%; --orbit-speed:14s; }
+.solar-orbit-middle { width:76%; height:76%; border-style:dashed; border-color:rgba(138,220,199,.2); --orbit-speed:12s; animation-delay:-3s; }
+.solar-orbit-inner { width:57%; height:57%; border-color:rgba(216,255,87,.2); --orbit-speed:10s; animation-delay:-2s; }
+.solar-orbit-support { width:40%; height:40%; border-style:dotted; border-color:rgba(187,174,255,.25); --orbit-speed:8s; animation-delay:-4s; }
 .solar-planet { position:absolute; top:0; left:50%; display:flex; width:42px; height:42px; align-items:center; justify-content:center; border:none; border-radius:50%; background:#171923; color:#c2b4ff; cursor:pointer; transform:translate(-50%,-50%); transition:background .2s,border-color .2s,box-shadow .2s; }
 .solar-planet>span { display:flex; align-items:center; gap:7px; white-space:nowrap; font-size:10px; font-weight:700; letter-spacing:.045em; text-transform:uppercase; animation:solarPlanetCounter var(--orbit-speed) linear infinite; animation-delay:inherit; }
 .solar-planet:hover,.solar-planet:focus-visible,.solar-planet.is-active /* data-ui */ { border-color:rgba(216,255,87,.65); background:#22252d; box-shadow:0 0 25px rgba(216,255,87,.14); color:var(--cinema-lime); outline:none; }
@@ -3995,10 +3995,10 @@ body { font-size:16px; }
 .solar-system { position:relative; width:min(100%,500px); aspect-ratio:1; isolation:isolate; }
 .solar-system::before { position:absolute; inset:19%; border-radius:50%; background:rgba(153,126,255,.035); content:""; filter:blur(9px); }
 .solar-orbit { position:absolute; top:50%; left:50%; display:block; border:none; border-radius:50%; transform:translate(-50%,-50%); animation:solarOrbitSpin var(--orbit-speed) linear infinite; }
-.solar-orbit-outer { width:94%; height:94%; --orbit-speed:46s; }
-.solar-orbit-middle { width:76%; height:76%; border-style:dashed; border-color:rgba(138,220,199,.2); --orbit-speed:36s; animation-delay:-11s; }
-.solar-orbit-inner { width:57%; height:57%; border-color:rgba(216,255,87,.2); --orbit-speed:28s; animation-delay:-8s; }
-.solar-orbit-support { width:40%; height:40%; border-style:dotted; border-color:rgba(187,174,255,.25); --orbit-speed:22s; animation-delay:-14s; }
+.solar-orbit-outer { width:94%; height:94%; --orbit-speed:14s; }
+.solar-orbit-middle { width:76%; height:76%; border-style:dashed; border-color:rgba(138,220,199,.2); --orbit-speed:12s; animation-delay:-3s; }
+.solar-orbit-inner { width:57%; height:57%; border-color:rgba(216,255,87,.2); --orbit-speed:10s; animation-delay:-2s; }
+.solar-orbit-support { width:40%; height:40%; border-style:dotted; border-color:rgba(187,174,255,.25); --orbit-speed:8s; animation-delay:-4s; }
 .solar-planet { position:absolute; top:0; left:50%; display:flex; width:42px; height:42px; align-items:center; justify-content:center; border:none; border-radius:50%; background:#171923; color:#c2b4ff; cursor:pointer; transform:translate(-50%,-50%); transition:background .2s,border-color .2s,box-shadow .2s; }
 .solar-planet>span { display:flex; align-items:center; gap:7px; white-space:nowrap; font-size:10px; font-weight:700; letter-spacing:.045em; text-transform:uppercase; animation:solarPlanetCounter var(--orbit-speed) linear infinite; animation-delay:inherit; }
 .solar-planet:hover,.solar-planet:focus-visible,.solar-planet.is-active /* data-ui */ { border-color:rgba(216,255,87,.65); background:#22252d; box-shadow:0 0 25px rgba(216,255,87,.14); color:var(--cinema-lime); outline:none; }
