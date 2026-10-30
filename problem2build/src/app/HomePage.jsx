@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -32,6 +32,60 @@ function Hero() {
     { name: 'Discover', icon: Search, detail: 'Explore problems shared by the community.' },
   ];
   const [activePlanet, setActivePlanet] = useState(0);
+  const solarSystemRef = useRef(null);
+
+  useEffect(() => {
+    const system = solarSystemRef.current;
+    if (!system) return undefined;
+
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const startTime = performance.now();
+    const orbitingBadges = [...system.querySelectorAll('[data-solar-orbit]')].map(element => {
+      const orbit = element.closest('.solar-orbit');
+      const orbitDiameter = Number.parseFloat(window.getComputedStyle(orbit).getPropertyValue('--orbit-diameter')) / 100;
+      const duration = Number.parseFloat(window.getComputedStyle(orbit).getPropertyValue('--orbit-speed')) * 1000;
+      return { element, orbitDiameter, duration, phase: Number(element.dataset.orbitPhase) };
+    });
+
+    let frameId = 0;
+    const placeBadges = time => {
+      const width = system.clientWidth;
+      const height = system.clientHeight;
+      const radius = Math.min(width, height) / 2;
+
+      orbitingBadges.forEach(({ element, orbitDiameter, duration, phase }) => {
+        const angle = motionPreference.matches
+          ? phase
+          : phase + ((time - startTime) / duration) * Math.PI * 2;
+        const orbitRadius = radius * orbitDiameter;
+        element.style.left = `${width / 2 + Math.cos(angle) * orbitRadius}px`;
+        element.style.top = `${height / 2 + Math.sin(angle) * orbitRadius}px`;
+      });
+    };
+
+    const animate = time => {
+      placeBadges(time);
+      if (!motionPreference.matches) frameId = window.requestAnimationFrame(animate);
+    };
+    const handleMotionPreference = () => {
+      window.cancelAnimationFrame(frameId);
+      placeBadges(performance.now());
+      if (!motionPreference.matches) frameId = window.requestAnimationFrame(animate);
+    };
+    const resizeObserver = new ResizeObserver(() => placeBadges(performance.now()));
+
+    placeBadges(startTime);
+    resizeObserver.observe(system);
+    motionPreference.addEventListener('change', handleMotionPreference);
+    if (!motionPreference.matches) frameId = window.requestAnimationFrame(animate);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+      motionPreference.removeEventListener('change', handleMotionPreference);
+    };
+  }, []);
+
   return <section className="cinema-hero" aria-labelledby="hero-title">
     <div className="hero-copy">
       <p className="cinema-eyebrow"><span className="eyebrow-pulse"/> A place for everyday problems</p>
@@ -42,11 +96,11 @@ function Hero() {
       <div className="hero-builder-invitation"><Code2 size={18} aria-hidden="true"/><span><b>Here to build?</b><small>Explore real problems and choose where your skills can help.</small></span><Link href="/discover" aria-label="Explore problems as a builder"><ArrowRight size={17}/></Link></div>
     </div>
     <div className="solar-widget" aria-label="Itch community solar system">
-      <div className="solar-system">
-        <span className="solar-orbit solar-orbit-outer"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-discover ${activePlanet === 3 ? 'is-active' : ''}`} onClick={() => setActivePlanet(3)} aria-pressed={activePlanet === 3}><span><Search size={15}/>Discover</span></button></span></span>
-        <span className="solar-orbit solar-orbit-middle"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-build ${activePlanet === 2 ? 'is-active' : ''}`} onClick={() => setActivePlanet(2)} aria-pressed={activePlanet === 2}><span><Code2 size={15}/>Build</span></button></span></span>
-        <span className="solar-orbit solar-orbit-inner"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-share ${activePlanet === 0 ? 'is-active' : ''}`} onClick={() => setActivePlanet(0)} aria-pressed={activePlanet === 0}><span><Pencil size={15}/>Share</span></button></span></span>
-        <span className="solar-orbit solar-orbit-support"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-support ${activePlanet === 1 ? 'is-active' : ''}`} onClick={() => setActivePlanet(1)} aria-pressed={activePlanet === 1}><span><Heart size={15}/>Support</span></button></span></span>
+      <div className="solar-system" ref={solarSystemRef}>
+        <span className="solar-orbit solar-orbit-outer"><span className="solar-orbit-track"><button data-solar-orbit="discover" data-orbit-phase="-1.5707963268" type="button" className={`solar-planet solar-planet-discover ${activePlanet === 3 ? 'is-active' : ''}`} onClick={() => setActivePlanet(3)} aria-pressed={activePlanet === 3}><span><Search size={15}/>Discover</span></button></span></span>
+        <span className="solar-orbit solar-orbit-middle"><span className="solar-orbit-track"><button data-solar-orbit="build" data-orbit-phase="0" type="button" className={`solar-planet solar-planet-build ${activePlanet === 2 ? 'is-active' : ''}`} onClick={() => setActivePlanet(2)} aria-pressed={activePlanet === 2}><span><Code2 size={15}/>Build</span></button></span></span>
+        <span className="solar-orbit solar-orbit-inner"><span className="solar-orbit-track"><button data-solar-orbit="share" data-orbit-phase="3.1415926536" type="button" className={`solar-planet solar-planet-share ${activePlanet === 0 ? 'is-active' : ''}`} onClick={() => setActivePlanet(0)} aria-pressed={activePlanet === 0}><span><Pencil size={15}/>Share</span></button></span></span>
+        <span className="solar-orbit solar-orbit-support"><span className="solar-orbit-track"><button data-solar-orbit="support" data-orbit-phase="1.5707963268" type="button" className={`solar-planet solar-planet-support ${activePlanet === 1 ? 'is-active' : ''}`} onClick={() => setActivePlanet(1)} aria-pressed={activePlanet === 1}><span><Heart size={15}/>Support</span></button></span></span>
         <div className="solar-sun"><ItchMark/><b>itch.</b><small>EVERYDAY PROBLEMS</small></div>
       </div>
       <div className="solar-caption" aria-live="polite"><span className="solar-caption-dot"/><span><b>{planets[activePlanet].name}</b>{planets[activePlanet].detail}</span></div>
