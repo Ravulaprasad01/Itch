@@ -89,7 +89,7 @@ export default function ItchHeader() {
             <Image src="/itch-mark.svg" alt="" width={36} height={36} className="h-9 w-9 rounded-xl transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-[-4deg]" />
             <span className="flex flex-col">
               <span className="text-xl font-black leading-none text-white">Itch.</span>
-              <span className="mt-1 hidden text-[8px] uppercase text-white/50 sm:block">Post it. Back it. Build it.</span>
+              <span className="mt-1 hidden text-[8px] uppercase text-white/50 sm:block">Share it, Support it, Build it</span>
             </span>
           </Link>
 

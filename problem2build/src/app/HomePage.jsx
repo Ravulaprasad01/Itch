@@ -18,7 +18,7 @@ function SiteHeader({ authenticated }) {
   return <header className="cinema-header">
     <Link href="/explore" className="cinema-brand" aria-label="Explore problems on Itch"><ItchMark/><span>itch<span className="brand-dot">.</span></span></Link>
     <nav aria-label="Main navigation">
-      <Link href="/explore">Explore</Link>{authenticated && <><Link href="/community">Community</Link><Link href="/discover">For builders</Link></>}
+      <Link href="/explore">Explore</Link><Link href="/discover">For builders</Link>{authenticated && <Link href="/community">Community</Link>}
     </nav>
     <div className="cinema-header-actions">{!authenticated && <Link className="cinema-signin" href="/auth">Sign in</Link>}{authenticated && <Link className="cinema-share" href="/problems/new">Share a problem <ArrowUpRight size={15}/></Link>}</div>
   </header>;
@@ -35,11 +35,12 @@ function Hero() {
   return <section className="cinema-hero" aria-labelledby="hero-title">
     <div className="hero-copy">
       <p className="cinema-eyebrow"><span className="eyebrow-pulse"/> A place for everyday problems</p>
-      <h1 id="hero-title">Every problem <em>has a story.</em></h1>
-      <h2 className="hero-subheading">Every story can spark a solution.</h2>
-      <p className="hero-lede">Share what’s bothering you, connect with people who understand, and explore what could make things better.</p>
+      <h1 id="hero-title"><span>Share it.</span> <em>Support it.</em> <strong>Build it.</strong></h1>
+      <h2 className="hero-subheading">Every problem deserves to be heard.</h2>
+      <p className="hero-lede">Describe what’s getting in your way, find people who understand, or explore real problems where your skills could help.</p>
       <div className="hero-actions"><Link className="button-lime" href="/explore">Explore problems <ArrowRight size={17}/></Link></div>
       <div className="hero-proof"><span><Shield size={14}/> Your email stays private</span><span><Users size={14}/> Real experiences, shared by people</span></div>
+      <div className="hero-builder-invitation"><Code2 size={18} aria-hidden="true"/><span><b>Here to build?</b><small>Explore real problems and choose where your skills can help.</small></span><Link href="/discover" aria-label="Explore problems as a builder"><ArrowRight size={17}/></Link></div>
     </div>
     <div className="solar-widget" aria-label="Itch community solar system">
       <div className="solar-system">

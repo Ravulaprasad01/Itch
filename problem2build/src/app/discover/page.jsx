@@ -5,18 +5,27 @@ import Link from 'next/link';
 import ItchHeader from '@/components/itch/ItchHeader';
 import ItchFooter from '@/components/itch/ItchFooter';
 import { problemFeedErrorMessage } from '@/lib/problem-feed-error';
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function DiscoverPage() {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     if (!db) { setLoading(false); setLoadError('Firebase is not configured.'); return undefined; }
 
-    return onSnapshot(query(collection(db, 'problems'), where('moderationStatus', '==', 'visible'), orderBy('createdAt', 'desc')), snapshot => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      setLoading(false);
+      setLoadError('The problem feed is taking longer than expected. Check your connection and try again.');
+    }, 10000);
+    const unsubscribe = onSnapshot(query(collection(db, 'problems'), where('moderationStatus', '==', 'visible')), snapshot => {
+        settled = true;
+        window.clearTimeout(timeout);
         const communityProblems = snapshot.docs.map(problemDoc => {
           const data = problemDoc.data();
           const categoryName = typeof data.category === 'string' ? data.category : data.category?.name;
@@ -31,13 +40,14 @@ export default function DiscoverPage() {
             wantThisCount: data.wantThisCount || 0,
             devInterestCount: data.devInterestCount || 0,
           };
-        });
+        }).sort((left, right) => (right.createdAt?.toMillis?.() ?? 0) - (left.createdAt?.toMillis?.() ?? 0));
 
         setProblems(communityProblems);
         setLoading(false);
         setLoadError('');
-      }, error => { setProblems([]); setLoading(false); setLoadError(problemFeedErrorMessage(error)); });
-  }, []);
+      }, error => { settled = true; window.clearTimeout(timeout); setProblems([]); setLoading(false); setLoadError(problemFeedErrorMessage(error)); });
+    return () => { window.clearTimeout(timeout); unsubscribe(); };
+  }, [retryKey]);
 
   const sorted = problems;
 
@@ -53,7 +63,7 @@ export default function DiscoverPage() {
             <div><span>For builders · Explore real posts and the context behind them.</span><span aria-live="polite">{loading ? 'Loading…' : `${sorted.length} ${sorted.length === 1 ? 'problem' : 'problems'}`}</span></div>
           </header>
 
-          {loadError && <p className="community-local-note" role="alert">{loadError}</p>}
+          {loadError && <div className="explore-feed-error" role="alert"><p>{loadError}</p><button type="button" onClick={() => { setProblems([]); setLoading(true); setLoadError(''); setRetryKey(value => value + 1); }}>Try again</button></div>}
           {loading && <p className="community-local-note" role="status">Loading community problems…</p>}
 
           {!loading && !loadError && <div className="discover-list">

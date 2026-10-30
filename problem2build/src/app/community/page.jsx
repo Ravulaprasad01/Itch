@@ -7,7 +7,7 @@ import ItchHeader from '@/components/itch/ItchHeader';
 import ItchFooter from '@/components/itch/ItchFooter';
 import { CATEGORIES } from '@/lib/mock-data';
 import { problemFeedErrorMessage } from '@/lib/problem-feed-error';
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const FOLLOW_KEY = 'itch-community-topics-v1';
@@ -31,12 +31,12 @@ export default function CommunityPage() {
 
   useEffect(() => {
     if (!db) { setLoading(false); setLoadError('Firebase is not configured.'); return undefined; }
-    return onSnapshot(query(collection(db, 'problems'), where('moderationStatus', '==', 'visible'), orderBy('createdAt', 'desc')), snapshot => {
+    return onSnapshot(query(collection(db, 'problems'), where('moderationStatus', '==', 'visible')), snapshot => {
       setAllProblems(snapshot.docs.map(item => {
         const data = item.data();
         const category = CATEGORIES.find(topicItem => topicItem.name === data.category) || { id: 0, name: data.category || 'General' };
         return { id: item.id, slug: item.id, title: data.title, description: data.description, painPoint: data.description, targetAudience: data.audience, category, author: { displayName: data.authorName }, commentsCount: data.replyCount || 0, createdAt: data.createdAt?.toDate?.().toISOString() || new Date().toISOString() };
-      }));
+      }).sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)));
       setLoading(false);
       setLoadError('');
     }, error => { setLoading(false); setLoadError(problemFeedErrorMessage(error)); });

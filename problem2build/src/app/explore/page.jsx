@@ -8,17 +8,28 @@ import ProblemList from '@/components/itch/ProblemList';
 import ItchFooter from '@/components/itch/ItchFooter';
 import { CATEGORIES } from '@/lib/mock-data';
 import { problemFeedErrorMessage } from '@/lib/problem-feed-error';
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function ExplorePage() {
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     if (!db) { setLoading(false); setLoadError('Firebase is not configured.'); return undefined; }
-    return onSnapshot(query(collection(db, 'problems'), where('moderationStatus', '==', 'visible'), orderBy('createdAt', 'desc')), snapshot => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      setLoading(false);
+      setLoadError('The community feed is taking longer than expected. Check your connection and try again.');
+    }, 10000);
+    // Keep the server query on the indexed visibility field only. Sort the
+    // already-authorized public results locally to avoid a composite-index wait.
+    const unsubscribe = onSnapshot(query(collection(db, 'problems'), where('moderationStatus', '==', 'visible')), snapshot => {
+        settled = true;
+        window.clearTimeout(timeout);
         const communityProblems = snapshot.docs.map(item => {
           const data = item.data();
           const category = CATEGORIES.find(topic => topic.name === data.category) || { id: 0, name: data.category || 'General' };
@@ -45,15 +56,16 @@ export default function ExplorePage() {
             fundingAmount: Number.isFinite(data.fundingAmount) ? data.fundingAmount : null,
             fundingCurrency: typeof data.fundingCurrency === 'string' ? data.fundingCurrency : 'INR',
             commentsCount: data.replyCount || 0,
-            createdAt: data.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+            createdAt: data.createdAt?.toDate?.().toISOString() || '',
             isCommunityPost: true,
           };
-        });
+        }).sort((left, right) => (Date.parse(right.createdAt) || 0) - (Date.parse(left.createdAt) || 0));
         setProblems(communityProblems);
         setLoading(false);
         setLoadError('');
-      }, error => { setLoading(false); setLoadError(problemFeedErrorMessage(error)); });
-  }, []);
+      }, error => { settled = true; window.clearTimeout(timeout); setLoading(false); setLoadError(problemFeedErrorMessage(error)); });
+    return () => { window.clearTimeout(timeout); unsubscribe(); };
+  }, [retryKey]);
 
   const latestProblem = problems[0];
   const latestDescription = latestProblem?.description?.trim() || '';
@@ -88,7 +100,7 @@ export default function ExplorePage() {
 
           <div className="explore-preview-label" aria-live="polite"><span>{loading ? 'Loading problems…' : `${problems.length} ${problems.length === 1 ? 'problem' : 'problems'} shared`}</span></div>
 
-          {loadError ? <p role="alert" className="community-local-note">{loadError}</p> : loading ? <p role="status" className="community-local-note">Loading problems…</p> : <ProblemList initialProblems={problems} />}
+          {loadError ? <div className="explore-feed-error" role="alert"><p>{loadError}</p><button type="button" onClick={() => { setProblems([]); setLoading(true); setLoadError(''); setRetryKey(value => value + 1); }}>Try again</button></div> : loading ? <p role="status" className="community-local-note">Loading problems…</p> : <ProblemList initialProblems={problems} />}
         </div>
       </main>
 

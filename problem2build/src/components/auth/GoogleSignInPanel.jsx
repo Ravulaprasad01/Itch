@@ -133,7 +133,7 @@ export default function GoogleSignInPanel() {
     <section className="w-full max-w-md rounded-3xl border border-white/10 bg-surface-container/50 p-7 shadow-2xl sm:p-9">
       <Link href="/" className="mb-9 inline-flex items-center gap-3 text-sm text-tertiary transition hover:text-on-surface">
         <Image src="/itch-mark.svg" alt="" width={38} height={38} />
-        <span><b className="block text-lg leading-none text-on-surface">Itch.</b><small>POST IT. BACK IT. BUILD IT.</small></span>
+        <span><b className="block text-lg leading-none text-on-surface">Itch.</b><small>SHARE IT, SUPPORT IT, BUILD IT</small></span>
       </Link>
       <Link href="/" className="mb-6 flex w-fit items-center gap-2 text-xs text-tertiary transition hover:text-on-surface"><ArrowLeft size={15}/> Back to Itch</Link>
       <p className="font-mono text-[10px] font-semibold tracking-[.18em] text-primary">SIGN IN TO ITCH</p>
