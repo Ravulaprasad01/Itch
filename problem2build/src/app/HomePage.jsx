@@ -43,10 +43,10 @@ function Hero() {
     </div>
     <div className="solar-widget" aria-label="Itch community solar system">
       <div className="solar-system">
-        <span className="solar-orbit solar-orbit-outer"><button type="button" className={`solar-planet solar-planet-discover ${activePlanet === 3 ? 'is-active' : ''}`} onClick={() => setActivePlanet(3)} aria-pressed={activePlanet === 3}><span><Search size={15}/>Discover</span></button></span>
-        <span className="solar-orbit solar-orbit-middle"><button type="button" className={`solar-planet solar-planet-build ${activePlanet === 2 ? 'is-active' : ''}`} onClick={() => setActivePlanet(2)} aria-pressed={activePlanet === 2}><span><Code2 size={15}/>Build</span></button></span>
-        <span className="solar-orbit solar-orbit-inner"><button type="button" className={`solar-planet solar-planet-share ${activePlanet === 0 ? 'is-active' : ''}`} onClick={() => setActivePlanet(0)} aria-pressed={activePlanet === 0}><span><Pencil size={15}/>Share</span></button></span>
-        <span className="solar-orbit solar-orbit-support"><button type="button" className={`solar-planet solar-planet-support ${activePlanet === 1 ? 'is-active' : ''}`} onClick={() => setActivePlanet(1)} aria-pressed={activePlanet === 1}><span><Heart size={15}/>Support</span></button></span>
+        <span className="solar-orbit solar-orbit-outer"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-discover ${activePlanet === 3 ? 'is-active' : ''}`} onClick={() => setActivePlanet(3)} aria-pressed={activePlanet === 3}><span><Search size={15}/>Discover</span></button></span></span>
+        <span className="solar-orbit solar-orbit-middle"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-build ${activePlanet === 2 ? 'is-active' : ''}`} onClick={() => setActivePlanet(2)} aria-pressed={activePlanet === 2}><span><Code2 size={15}/>Build</span></button></span></span>
+        <span className="solar-orbit solar-orbit-inner"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-share ${activePlanet === 0 ? 'is-active' : ''}`} onClick={() => setActivePlanet(0)} aria-pressed={activePlanet === 0}><span><Pencil size={15}/>Share</span></button></span></span>
+        <span className="solar-orbit solar-orbit-support"><span className="solar-orbit-track"><button type="button" className={`solar-planet solar-planet-support ${activePlanet === 1 ? 'is-active' : ''}`} onClick={() => setActivePlanet(1)} aria-pressed={activePlanet === 1}><span><Heart size={15}/>Support</span></button></span></span>
         <div className="solar-sun"><ItchMark/><b>itch.</b><small>EVERYDAY PROBLEMS</small></div>
       </div>
       <div className="solar-caption" aria-live="polite"><span className="solar-caption-dot"/><span><b>{planets[activePlanet].name}</b>{planets[activePlanet].detail}</span></div>
