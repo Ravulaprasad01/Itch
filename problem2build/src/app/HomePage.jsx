@@ -18,7 +18,7 @@ function SiteHeader({ authenticated }) {
   return <header className="cinema-header">
     <Link href="/explore" className="cinema-brand" aria-label="Explore problems on Itch"><ItchMark/><span>itch<span className="brand-dot">.</span></span></Link>
     <nav aria-label="Main navigation">
-      <Link href="/explore">Explore</Link><Link href="/discover">For builders</Link>{authenticated && <Link href="/community">Community</Link>}
+      <Link href="/explore">Explore</Link>{authenticated && <Link href="/community">Community</Link>}
     </nav>
     <div className="cinema-header-actions">{!authenticated && <Link className="cinema-signin" href="/auth">Sign in</Link>}{authenticated && <Link className="cinema-share" href="/problems/new">Share a problem <ArrowUpRight size={15}/></Link>}</div>
   </header>;
