@@ -38,7 +38,6 @@ function Hero() {
       <h1 id="hero-title"><span>Share it.</span> <em>Support it.</em> <strong>Build it.</strong></h1>
       <h2 className="hero-subheading">Every problem deserves to be heard.</h2>
       <p className="hero-lede">Describe what’s getting in your way, find people who understand, or explore real problems where your skills could help.</p>
-      <div className="hero-actions"><Link className="button-lime" href="/explore">Explore problems <ArrowRight size={17}/></Link></div>
       <div className="hero-proof"><span><Shield size={14}/> Your email stays private</span><span><Users size={14}/> Real experiences, shared by people</span></div>
       <div className="hero-builder-invitation"><Code2 size={18} aria-hidden="true"/><span><b>Here to build?</b><small>Explore real problems and choose where your skills can help.</small></span><Link href="/discover" aria-label="Explore problems as a builder"><ArrowRight size={17}/></Link></div>
     </div>
